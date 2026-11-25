@@ -13,6 +13,7 @@ from ..lib import (
     sequence_items,
 )
 from ..lib.render_clean import apply_render_clean, human_bytes, plan_render_clean
+from ..lib.operators import popup
 
 # The scan's result waiting for its confirm dialog (one timer tick later:
 # see NOTES.md, "Popup-chaining").
@@ -25,16 +26,9 @@ def _in_background(fn, args, on_done) -> None:
 
     def failed(error):
         log("ERROR", "render_clean", f"Clean old renders failed: {error}")
-        _popup("Clean old renders failed", f"{error}\n\nSee the pipeline log.", "ERROR")
+        popup("Clean old renders failed", f"{error}\n\nSee the pipeline log.", "ERROR")
 
     run_in_background(fn, args, on_done, failed)
-
-
-def _popup(title: str, message: str, icon: str = "INFO") -> None:
-    try:
-        bpy.ops.m_pipeline.text_popup("INVOKE_DEFAULT", title=title, message=message, icon=icon)
-    except RuntimeError:
-        pass  # no window to show it in: the log has it
 
 
 class M_PIPELINE_OT_clean_renders(bpy.types.Operator):
@@ -110,7 +104,7 @@ class M_PIPELINE_OT_clean_renders(bpy.types.Operator):
 
         def looked(plan):
             if not plan["candidates"]:
-                _popup("Clean old renders", "Nothing to clean: every render is among the ones kept.")
+                popup("Clean old renders", "Nothing to clean: every render is among the ones kept.")
                 return
             _pending.clear()
             _pending.update(plan=plan, keep=keep)
@@ -200,9 +194,9 @@ class M_PIPELINE_OT_clean_renders_confirm(bpy.types.Operator):
                 log("WARNING", "render_clean", f"Not cleaned: {path}: {why}")
             if result["errors"]:
                 lines = [f"{path}: {why}" for path, why in result["errors"][:12]]
-                _popup("Clean old renders", "\n".join([message, f"{len(result['errors'])} not cleaned:", *lines]), "ERROR")
+                popup("Clean old renders", "\n".join([message, f"{len(result['errors'])} not cleaned:", *lines]), "ERROR")
             else:
-                _popup("Clean old renders", message)
+                popup("Clean old renders", message)
 
         _in_background(apply_render_clean, (plan,), cleaned)
         return {"FINISHED"}

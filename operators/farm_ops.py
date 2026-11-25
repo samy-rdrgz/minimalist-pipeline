@@ -29,14 +29,16 @@ from ..farm import (
     stop_worker,
     worker_rendering,
 )
-from ..lib.monitoring.status import preset_department
+from ..lib.monitoring.status import furthest_department as status_furthest_department
+from ..lib.monitoring.status import preset_department, project_stages
+from ..lib.presets import render_presets
 from ..lib import (
     EARLIEST,
     ConfigCache,
     PipelineAction,
     PipelineError,
+    TrackingStatusCache,
     asset_folder_items,
-    cached_scandir,
     draw_box_tip,
     get_active_project_root,
     get_folder,
@@ -66,6 +68,7 @@ _pre_render_scripts: list[tuple[str, str, str]] = []
 # The pre-render picker's "None" item. Never "": Blender draws an item with
 # an empty identifier as a heading in the menu, not as a choice.
 _NO_SCRIPT = "NONE"
+NO_SCRIPT_ITEM = (_NO_SCRIPT, "No pre-render script", "Render with the file's own settings")
 
 
 def _stable_enum_items(cache: list, items: list) -> list:
@@ -102,30 +105,18 @@ def _get_workers_items(self, context):
 
 
 def pre_render_script_items(
-    presets_dir: Path | None, departments=()
+    root: Path | None, departments=(), kind: str | None = None
 ) -> list[tuple[str, str, str]]:
-    """The pre-render picker's items: "no script", then every .py preset
-    directly under presets_dir (matches apply_custom_preset()'s
-    lookup), excluding asset_file_preset.py and the ffmpeg_presets/
-    subfolder -- each with the department its name gives among
-    departments (preset_department()): its renders are that department's."""
-    items = [(_NO_SCRIPT, "No pre-render script", "Render with the file's own settings")]
-    if presets_dir is None:
-        return items
+    """The pre-render picker's items: "no script", then the project's render
+    presets (root's, the active project's for None; lib/presets.py
+    render_presets(), as apply_custom_preset() finds them): kind's ("shot" /
+    "asset"), every one for None -- each with the department its name gives
+    among departments (preset_department()): its renders are that department's."""
+    items = [NO_SCRIPT_ITEM]
     try:
-        names = set()
-        # cached_scandir(): the pickers are re-evaluated on every redraw;
-        # DirEntry.is_file() needs no extra stat.
-        for f in cached_scandir(presets_dir):
-            suffix = Path(f.name).suffix
-            if (
-                f.is_file()
-                and suffix == ".py"
-                and f.name != "asset_file_preset.py"
-                and Path(f.name).stem != _NO_SCRIPT
-            ):
-                names.add(Path(f.name).stem)
-        for name in sorted(names):
+        # Not fresh: the pickers are re-evaluated on every redraw (cached_scandir()).
+        names = sorted(n for n in render_presets(root, kind, fresh=False) if n != _NO_SCRIPT)
+        for name in names:
             dep = preset_department(name, departments)
             items.append((
                 name,
@@ -139,15 +130,16 @@ def pre_render_script_items(
 
 
 def _get_pre_render_scripts(self, context):
-    """The Render dialog's picker: the active project's presets."""
-    try:
-        presets_dir = ConfigCache.get_path("presets")
-    except Exception as e:
-        log("WARNING", "farm", f"Could not list pre-render presets: {e}")
-        presets_dir = None
+    """The Render dialog's picker: the active project's presets for the
+    file's kind (render_shots/ or render_assets/); every one without a
+    dialog (the live page's form)."""
     config = ConfigCache.get() or {}
     departments = [*json_get(config, "shots_departments", []), *json_get(config, "assets_departments", [])]
-    items = pre_render_script_items(presets_dir, departments)
+    filepath = getattr(self, "filepath", "") or ""
+    kind = None
+    if filepath:
+        kind = "shot" if (parse_filename(Path(filepath).name) or {}).get("shot") else "asset"
+    items = pre_render_script_items(None, departments, kind)
     if self is not None and len(items) > 1:
         # Only what fits: a department picked, its presets (its name's, or set for it);
         # none, the presets of no department and those of the file's kind -- never a
@@ -162,12 +154,6 @@ def _get_pre_render_scripts(self, context):
         items = [items[0], *keep]
     return _stable_enum_items(_pre_render_scripts, items)
 
-
-def default_pre_render_script(config: dict, items: list) -> str:
-    """config's farm.default_prerender_script (Edit project) if it's still
-    one of the picker's items, else _NO_SCRIPT."""
-    name = json_get(config, "farm.default_prerender_script", "") or ""
-    return name if name in {item[0] for item in items if item} else _NO_SCRIPT
 
 
 _NO_DEPT = "NONE"
@@ -209,6 +195,20 @@ def department_preset(config: dict, department: str, items: list) -> str:
     return _NO_SCRIPT
 
 
+def furthest_department(filepath: str) -> str:
+    """The department a render of filepath is most likely for
+    (lib/monitoring/status.py furthest_department()), among its kind's.
+    "" for none (a new file)."""
+    if not filepath:
+        return ""
+    kind = "shots" if (parse_filename(Path(filepath).name) or {}).get("shot") else "assets"
+    return status_furthest_department(
+        TrackingStatusCache.get(filepath) or {},
+        _file_departments(filepath),
+        project_stages(ConfigCache.get() or {}, kind),
+    )
+
+
 def last_render(filepath: str, department: str | None = None) -> dict:
     """filepath's latest finished render (of department, if given) in its
     render_history.json, {} if none."""
@@ -229,7 +229,7 @@ def _department_changed(self, context):
     items = _get_pre_render_scripts(self, context)
     names = {i[0] for i in items if i}
     if self.department == _NO_DEPT:
-        self.pre_render_script = default_pre_render_script(ConfigCache.get(), items)
+        self.pre_render_script = _NO_SCRIPT  # no department, no department's preset
         return
     last = last_render(self.filepath, self.department).get("prerender_script")
     self.pre_render_script = last if last in names else department_preset(ConfigCache.get(), self.department, items)
@@ -422,7 +422,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
 
     bl_idname = "m_pipeline.farm_request_render"
     bl_label = "Render"
-    bl_description = "Submit this file (or the pending list) to the render farm queue."
+    bl_description = "Send this file, or several picked in the list, to the render farm queue."
 
     # SKIP_SAVE: otherwise Blender remembers the last value across
     # invocations (its redo-panel memory), so the project panel's/top bar's
@@ -583,10 +583,10 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             self.filepath = bpy.data.filepath
         self.project_root = str(get_active_project_root())
         scan_descriptions(get_active_project_root())  # menu tooltips
-        # Every submit starts from this file's last render's department (its
-        # preset with it: _department_changed()), else the project's preset --
-        # never the dialog's last one.
-        dept = last_render(self.filepath).get("department") or ""
+        # Every submit starts from the furthest department this file has
+        # been worked or done for (its preset with it: _department_changed()),
+        # else its last render's -- never the dialog's last one.
+        dept = furthest_department(self.filepath) or last_render(self.filepath).get("department") or ""
         self.department = dept if dept and dept in _file_departments(self.filepath) else _NO_DEPT
         _department_changed(self, context)  # its update may not run from invoke()
         if self.filepath:
@@ -1045,7 +1045,7 @@ class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
 
     bl_idname = "m_pipeline.farm_kill_self_worker"
     bl_label = "Kill this worker."
-    bl_description = "Remove this computer's worker registration."
+    bl_description = "This computer stops being a farm worker -- rendering, you choose: after this frame, or now."
 
     def invoke(self, context, event):
         if not worker_rendering():

@@ -33,7 +33,7 @@
   var paneCss = document.createElement('style');
   paneCss.id = 'panes-live';
   document.head.appendChild(paneCss);
-  var chev = { l: 'M4 2l4 4-4 4', r: 'M8 2 4 6l4 4' };
+  var chev = { l: 'tria_right', r: 'tria_left' };
   var H = {},
     TAB = {};
   ['out', 'props'].forEach(function (k) {
@@ -51,10 +51,8 @@
       'aria-label',
       k === 'out' ? T('Show the outliner again') : T('Show the detail panel again')
     );
-    b.innerHTML =
-      '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="' +
-      chev[R[k].side] +
-      '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    // The same triangles as every other tab (Watch large's) and the detail's fold button.
+    b.innerHTML = '<svg class="i" aria-hidden="true"><use href="#b-' + chev[R[k].side] + '"/></svg>';
     b.addEventListener('click', function () {
       pz[k].open = true;
       if (pz[k].w < R[k].min) pz[k].w = R[k].def;
@@ -203,7 +201,8 @@
       else if (pz.props.w < R.props.min) pz.props.w = R.props.def;
       apply();
     },
-    sync: sync
+    sync: sync,
+    place: place
   };
   function place() {
     var sr = screen.getBoundingClientRect(),
@@ -224,9 +223,11 @@
         h.style.height = r.height + 'px';
         h.style.left = (k === 'out' ? r.right + gap / 2 - 5 : r.left - gap / 2 - 5) + 'px';
       } else {
-        // Just under the list's filter bar, out of its way.
-        var fh = document.querySelector('#main .area-head');
-        b.style.top = (fh ? fh.getBoundingClientRect().bottom + 8 : sr.top + 12) + 'px';
+        // Just under the list's filter bar and its stuck sequence header, out of their way.
+        var fh = document.querySelector('#main .area-head'),
+          gh = document.querySelector('#list .grp-h');
+        b.style.top =
+          (fh ? fh.getBoundingClientRect().bottom + (gh ? gh.offsetHeight : 0) + 8 : sr.top + 12) + 'px';
         if (k === 'out') {
           b.style.left = sr.left + 'px';
           b.style.right = '';

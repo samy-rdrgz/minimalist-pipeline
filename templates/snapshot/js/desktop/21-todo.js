@@ -39,6 +39,8 @@ function todoOf(it) {
       !(it.ok[d] && !it.ok[d].old) &&
       it.mine[d] !== 'val' &&
       (!tdSt() || (tdSt() === 'val') === toCheck(it, d)) &&
+      // To work on: not what waits on something else (nothing to do on it yet).
+      !(tdSt() === 'work' && (it.flags[d] || {}).waiting) &&
       (!t.dept || d === t.dept) &&
       (!tdWho() || assignOf(it, d).includes(tdWho()))
   );
@@ -85,7 +87,7 @@ function renderTodoQuick() {
           `<button class="mi" role="menuitemradio" aria-checked="${t.dept === d}" data-tdd="${d}"><span class="ck">${t.dept === d ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(l)}</span></button>`
       )
       .join('')}</div></span>
-    <button class="btn ${t.order === 'old' ? '' : 'tool'}" data-tdo="${t.order === 'old' ? 'seq' : 'old'}" aria-pressed="${t.order === 'old'}" title="${T('Waiting the longest first: for a reviewer since the latest stable, to work on since the oldest open retake')}">${ic('b-sorttime')}${T('Oldest first')}</button>
+    <button class="btn ${t.order === 'old' ? '' : 'tool'}" data-tdo="${t.order === 'old' ? 'seq' : 'old'}" aria-pressed="${t.order === 'old'}" title="${T('Waiting the longest first: for a reviewer since the latest stable, to work on since the oldest open retake')}">${ic('b-sortasc')}${T('Oldest first')}</button>
     ${
       tdPeople().length
         ? `<span class="anchor"><button class="btn ${tdWho() ? '' : 'tool'}" data-menu="m-tdw" aria-haspopup="true" aria-expanded="false" ${tdWho() ? 'aria-pressed="true"' : ''}>${ic('b-user')}${tdWho() ? esc(tdWho()) : T('Everyone')}${ic('b-downarrow_hlt')}</button>

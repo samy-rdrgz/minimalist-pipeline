@@ -329,7 +329,7 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
     end_frame: bpy.props.IntProperty(name="End frame", default=1001, min=0, step=1)
     description: bpy.props.StringProperty(
         name="Description",
-        description="What this shot is, shown in its tracking panel.",
+        description="What this shot is, shown in its detail on the live page.",
         default="",
     )
     create_clean: bpy.props.BoolProperty(
@@ -463,7 +463,7 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
     end_frame: bpy.props.IntProperty(name="End frame", default=10, min=0, step=1)
     description: bpy.props.StringProperty(
         name="Description",
-        description="What this shot is, shown in its tracking panel.",
+        description="What this shot is, shown in its detail on the live page.",
         default="",
     )
     create_clean: bpy.props.BoolProperty(

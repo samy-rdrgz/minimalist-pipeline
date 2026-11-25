@@ -8,6 +8,7 @@ Depuis la 2.0, la page live remplace les fenêtres Project monitoring et Farm mo
 - Panneau Project ou menu Pipeline › *Monitor in browser* (Shift+Alt+P).
 - *Farm in browser* du panneau Farm (Shift+Alt+F).
 - *Details in browser* d'un fichier l'ouvre sur ce fichier.
+- Toute seule, avec *Open the live page* coché dans les préférences de l'addon : au démarrage de Blender avec un projet, ou quand un autre projet devient actif -- une fois : pas si ce Blender, ou un autre sur la machine, la sert déjà.
 
 C'est la même page que le [snapshot de production](tracking-and-reviews_fr.md), tenue à jour tant que Blender tourne. Ce qu'elle montre et le fonctionnement d'une review sont décrits dans [Suivi & reviews](tracking-and-reviews_fr.md). Cette page fait le tour de ses onglets.
 
@@ -20,7 +21,7 @@ Les captures viennent du projet de démo de `tests/fixtures/` (la farm et l'hist
 <img src="images/live-shots.png" alt="La page live : l'onglet Shots, le détail d'un fichier à droite">
 
 - **À gauche** : l'arbre des séquences et des fichiers, chacun avec son avancement.
-- **Au milieu** : la liste, une ligne par fichier, un losange par département. Pour qu'elle reste légère :
+- **Au milieu** : la liste, une ligne par fichier, un losange par département. Un point en bas à gauche d'un losange : ce département a un rendu à lui fait après sa dernière session ; pâle, son rendu est plus ancien que sa dernière session ; aucun, jamais rendu (l'infobulle dit quand). Pour qu'elle reste légère :
   - les mots d'un état (*Validé · 1 note*) s'affichent sur la ligne survolée ou sélectionnée, le losange dit le reste ; de même les chiffres d'Avancement et les mots de la colonne Rendus (ses icônes restent), *Lire la séquence* / *+ plan* d'une séquence (son en-tête survolé), les chiffres de l'arbre, ceux de Synthèse (la barre survolée), les boutons des départements du détail (la carte survolée) et de ses notes (Répondre, Corrigé, le crayon : la note survolée) -- en fondu ou dépliés, à la souris seulement ;
   - les versions d'un fichier (`v013 · stable v012 · 3 plans`) ne s'affichent que sur la ligne sélectionnée ;
   - *Avancement*, c'est deux barres, Fait en bleu et Validé en rose (leurs mots dans l'infobulle) ;
@@ -94,14 +95,17 @@ Les chiffres par section, l'allure du planning, le tableau par séquence (les sh
 
 <img src="images/live-farm.png" alt="L'onglet Farm">
 
-Les jobs de la farm par état : en cours, en attente, en échec et terminés. Le temps de rendu restant est affiché au-dessus de la liste. Un clic sur un job ouvre son détail :
+Les jobs de la farm par état : en cours, en attente, en échec et terminés. Le temps de rendu restant de la file, et l'heure à laquelle tout devrait être fini, sont dans la barre d'état en bas ; celui de chaque rendu est sous sa barre. ↑ ↓ passent d'un job à l'autre. Un clic sur un job ouvre son détail :
 - ses étapes, ses frames, ses machines et qui l'a envoyé ;
+- pendant le rendu : le temps restant et l'heure de fin prévue, le temps par frame, depuis combien de temps il est sur cette étape, et pour chaque machine son temps par frame et la frame sur laquelle elle est ;
+- ce qui s'est mal passé, comme dans le détail du job dans Blender : un morceau en échec et pourquoi (manque de mémoire, crash...), une frame bloquée, les machines retirées ;
+- ses étapes, chacune avec le temps depuis la précédente ;
 - sa priorité (− / +) ;
 - *Annuler*, *Relancer*, *Archiver*, *Recompiler*, et *Retirer de la file* tant que rien n'est rendu ;
 - son fichier, son dossier et ses logs.
 
 En haut :
-- **Cette machine** : *En faire un worker* / *Ne plus être worker*.
+- **Cette machine** : *En faire un worker* / *Ne plus être un worker* -- pendant qu'elle rend, une popup demande : *Arrêter après cette frame* / *Arrêter maintenant* (voir [Farm](farm_fr.md), Arrêter un worker).
 - **L'hôte de la farm** : *Lancer la farm*, *Reprendre la farm* (si elle est bloquée, demandé deux fois) et *Arrêter la farm* (demandé deux fois ; les rendus en cours finissent, la file est gardée).
 
 <img src="images/live-farm-job.png" alt="Le détail d'un job">
@@ -122,6 +126,8 @@ Voir [Farm](farm_fr.md).
 <img src="images/live-phone-list.png" alt="Téléphone : Review" width="240"> <img src="images/live-phone-todo.png" alt="Téléphone : À faire" width="240"> <img src="images/live-phone-farm.png" alt="Téléphone : Farm" width="240">
 
 *Share with a phone…* (menu Pipeline, ou l'icône à côté de *Monitor in browser*) donne à quelqu'un un accès limité dans le temps, avec un QR code.
+
+Avec *Allow Online Access* désactivé dans Blender (Préférences › Système, ou `--offline-mode`), la page marche toujours sur cette machine (elle ne quitte jamais 127.0.0.1) mais n'est pas partagée : aucun accès téléphone n'est créé, et ceux en cours sont coupés du réseau jusqu'à ce qu'on le réactive.
 
 Sur le téléphone, on a les onglets **Review**, **À faire** et **Farm**. Un glissement de côté sur la vidéo passe au plan suivant ou précédent ; un panneau (Rendu, une version…) se ferme tiré vers le bas par son en-tête. La page passe en plein écran au premier toucher ; le menu ⚙ en sort (retenu) ou y revient -- pas sur iPhone, dont le navigateur ne le permet pas. En review, on y écrit des retakes, des remarques et des à-faire, on marque un retake corrigé ou un à-faire fait, et on rouvre une note fermée. La farm est en lecture seule, sauf si l'accès permet de la piloter (lancer, arrêter, rendus, priorités). Rien n'est jamais ouvert sur la machine qui sert la page.
 

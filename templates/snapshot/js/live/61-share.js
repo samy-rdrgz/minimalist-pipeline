@@ -63,7 +63,7 @@ function shareSend(body) {
       clearTimeout(late);
       if (!res.ok) {
         toast(T('Not shared: {error}', { error: TS(res.error) || '?' }));
-        if (!$('#sh-body').querySelector('.sh-form')) shareDraw(res);
+        if (res.online === false || !$('#sh-body').querySelector('.sh-form')) shareDraw(res);
         return;
       }
       shareDraw(res);
@@ -82,7 +82,9 @@ function shareDraw(res) {
     h += `<div class="sh-made"><div class="sh-qr">${res.qr}</div><div class="sh-info"><span><b>${esc(res.name)}</b> · ${esc(res.role)}${res.farm ? ' · ' + T('drives the farm') : ''}</span><small class="faint">${T('until {when}', { when: fmtUntil(res.until) })}</small>
     <p class="faint">${res.via === 'VPN' ? T('Scan it on a device on the same VPN, wherever it is -- or send the link:') : T("Scan it on the same network (the studio's Wi-Fi) -- or send the link:")}</p>
     <label class="field"><input id="sh-link" readonly value="${esc(res.link)}" aria-label="${T('Link')}"></label><button class="btn" id="sh-copy">${ic('b-linked')}${T('Copy link')}</button></div></div>`;
-  h += `<div class="sh-form">
+  if (res.online === false)
+    h += `<p class="sh-off">${T("Online access is off in Blender (Preferences › System › Allow Online Access): this page stays on this machine. Turn it on to share it with a phone -- the accesses below come back with it.")}</p>`;
+  else h += `<div class="sh-form">
     <div class="prop"><span class="k">${T('Name')}</span><span class="v"><label class="field" style="flex:1"><input id="sh-name" maxlength="40" placeholder="${T('Who it is for')}" autocomplete="off"></label></span></div>
     <div class="prop"><span class="k">${T('Role')}</span><span class="v"><label class="field" style="flex:1"><select id="sh-role">${roles.map(r => `<option${r === TEAM ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select></label></span></div>
     ${ad.length > 1 ? `<div class="prop"><span class="k">${T('Reached through')}</span><span class="v"><label class="field" style="flex:1"><select id="sh-ip">${ad.map(a => `<option value="${esc(a.ip)}"${a.ip === SHARE_IP ? ' selected' : ''}>${esc(a.kind)} · ${esc(a.ip)}</option>`).join('')}</select></label></span></div>` : ''}

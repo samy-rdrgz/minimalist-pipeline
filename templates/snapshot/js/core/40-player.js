@@ -118,7 +118,10 @@ PV.addEventListener('ended', () => {
     mEnd();
     return;
   }
-  if (S.seqPlay && S.wide) seqNext();
+  if (!S.wide) return;
+  // At the end, Watch large's choice: the next shot (as Play the sequence), or the same again.
+  if (S.seqPlay) seqNext();
+  else togglePlay();
 });
 const tickV = () => {
   if (!PV.paused) {
@@ -250,3 +253,9 @@ function mVer(it) {
   if (b == null || b >= V.length) b = V.length > 1 ? (a === 0 ? 1 : 0) : a;
   return { V, a, b, i: S.m.side === 'B' && V.length > 1 ? b : a };
 }
+
+/* The frames being picked on a big scrub (Watch large, the phone): from the range's start to the frame. */
+const rngSelHTML = () =>
+  S.rangeStart != null
+    ? `<span class="rng sel" id="rng-sel" style="left:${((Math.min(S.rangeStart, S.frame) - 1) / (NF - 1)) * 100}%;width:${(Math.abs(S.frame - S.rangeStart) / (NF - 1)) * 100}%"></span>`
+    : '';

@@ -18,6 +18,7 @@ once as an imported review would be. See NOTES.md, "Live page".
 """
 
 import base64
+import gzip
 import hmac
 import html
 import json
@@ -27,6 +28,7 @@ import queue
 import re
 import secrets
 import socket
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -35,10 +37,11 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import bpy
 
+from ..background import Worker
 from ..core import get_addon_version, now
 from ..logs import log
 from ..preview import browser_video, render_department, render_root
-from .snapshot import _folder_frames, _owner_shots, _rushes_by_name, _video_name, build_snapshot, folder_links, read_render_state
+from .snapshot import _folder_frames, _owner_shots, _render_presets, _rushes_by_name, _video_name, build_snapshot, folder_links, read_render_state
 from .snapshot_page import page_data, render_page
 from .status import project_stages
 from . import progress_log
@@ -59,12 +62,29 @@ VERSIONS_SHOWN = 15  # a shot's render versions offered to watch, newest first
 PORTS = range(8765, 8776)  # fixed: a page left open finds its server again
 TICK = 0.1  # the main thread's turn
 READ_EVERY = 4.0  # seconds between two passes over the project...
+FARM_EVERY = 2.0  # ...and between two looks at the farm (its counters move all the time)
+# Blender rendering on its CPU (a viewport in Cycles on the CPU, a render): every core taken, the
+# page's own work fights it for them -- the interface stuttered. Passes and the farm's looks spaced
+# out by this much meanwhile.
+BUSY_SLOWER = 3.0
 IDLE_AFTER = 30.0  # ...while a page asked for something this recently
 BUSY_AFTER = 1.5  # no turn for this long: the page says "Blender busy"
 POLL = 20.0  # a page waiting for news is answered after this, news or not
 FIRST_BATCH = 1.0  # the first read: a page of what's read after this long (a small project: none)...
 BATCH_EVERY = 2.0  # ...then again this often, until it's whole
 CHUNK = 64 * 1024
+
+
+class _Server(ThreadingHTTPServer):
+    """The page's server: a page closing (or reloading) while it's answered is
+    no error -- not a traceback in the console each time."""
+
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+            return
+        super().handle_error(request, client_address)
 
 
 class _Shared:
@@ -108,6 +128,38 @@ _guests: dict[str, dict] = {}  # token: {"name", "role", "until" (epoch), "made"
 _guests_lock = threading.Lock()
 _lan = {"servers": {}, "error": ""}  # {ip: server}: one per address a guest uses
 _config_dir: Path | None = None  # Blender's config folder, read on the main thread
+
+# The replies compressed, the last few kept: {(size, hash): gzipped}.
+_GZ: dict = {}
+
+
+def _gzip(body: bytes) -> bytes:
+    """The body gzipped; the last ones kept (the page is the same for every guest until it changes)."""
+    key = (len(body), hash(body))
+    out = _GZ.get(key)
+    if out is None:
+        out = gzip.compress(body, compresslevel=6, mtime=0)
+        if len(_GZ) > 8:
+            _GZ.clear()
+        _GZ[key] = out
+    return out
+
+
+# What the page's data asks of the shared folder on the main thread, kept a few seconds: the
+# Render form's presets (their folder listed). Read at each rebuild -- twice a second while a page is open --, a slow share
+# held Blender's interface up to half a second (tools: the live page's profile). Cleared by the
+# page's farm actions: their change shown at once.
+_SLOW: dict = {}
+SLOW_TTL = {"presets": 10.0}
+
+
+def _slow(key: str, fn):
+    """fn()'s answer, read again only every SLOW_TTL[key] seconds."""
+    hit = _SLOW.get(key)
+    clock = time.monotonic()
+    if hit is None or clock - hit[0] > SLOW_TTL[key]:
+        hit = _SLOW[key] = (clock, fn())
+    return hit[1]
 
 
 def _guests_file() -> Path | None:
@@ -210,6 +262,18 @@ def _addresses() -> list[dict]:
 
 _lan_lock = threading.Lock()
 
+OFFLINE = "online access is off in Blender's Preferences (System): the page stays on this machine"
+
+
+def online() -> bool:
+    """Blender's Allow Online Access (Preferences > System, or --offline-mode):
+    off, the page is served on this machine only -- 127.0.0.1, never the
+    network a phone reaches it on. Never raises; True on a Blender without it."""
+    try:
+        return bool(getattr(bpy.app, "online_access", True))
+    except Exception:
+        return True
+
 
 def _sync_lan(sh: "_Shared") -> None:
     """The page on the network while a guest is valid, never otherwise.
@@ -223,6 +287,12 @@ def _sync_lan_locked(sh: "_Shared") -> None:
         for t in [t for t, g in _guests.items() if g["until"] <= time.time()]:
             del _guests[t]
         wanted = {g.get("ip") for g in _guests.values() if g.get("ip")}
+    if wanted and not online():
+        # Their accesses kept, unreachable: served again once it's back on.
+        if _lan.get("error") != OFFLINE:
+            log("INFO", "live", "Live page: online access is off, served on this machine only")
+        _lan["error"] = OFFLINE
+        wanted = set()
     servers = _lan["servers"]
     for ip in [ip for ip in servers if ip not in wanted]:
         server = servers.pop(ip)
@@ -233,7 +303,7 @@ def _sync_lan_locked(sh: "_Shared") -> None:
         return
     for ip in wanted - set(servers):
         try:
-            server = ThreadingHTTPServer((ip, _server.server_address[1]), _handler(sh))
+            server = _Server((ip, _server.server_address[1]), _handler(sh))
         except OSError as e:
             _lan["error"] = f"not served on {ip}: {e}"
             log("WARNING", "live", f"Live page: {_lan['error']}")
@@ -261,6 +331,8 @@ def _share(raw: dict, sh: "_Shared") -> dict:
         if gone:
             log("INFO", "live", f"Live page: {gone['name']}'s access revoked")
         _save_guests()
+    elif raw.get("name") and not online():
+        return {"ok": False, "error": OFFLINE, "online": False, "guests": _guest_list(), "addresses": _addresses()}
     elif raw.get("name"):
         name = str(raw["name"]).strip()[:40]
         roles = set((sh.data or {}).get("meta", {}).get("roles") or []) | {"team"}
@@ -292,7 +364,7 @@ def _share(raw: dict, sh: "_Shared") -> dict:
         via = next((a["kind"] for a in _addresses() if a["ip"] == ip), "")
         out.update(link=link, qr=qr_svg(link), until=_iso(end), name=name, role=role, via=via, farm=bool(raw.get("farm")))
         log("INFO", "live", f"Live page: an access for {name} ({role}) until {_iso(end)}")
-    return {"ok": True, "guests": _guest_list(), "addresses": _addresses(), **out}
+    return {"ok": True, "online": online(), "guests": _guest_list(), "addresses": _addresses(), **out}
 
 
 def _beginner() -> bool:
@@ -316,7 +388,10 @@ def _as_guest(data: dict, token: str, guest: dict) -> dict:
     return {**data, "meta": meta}
 # partial: the first read's latest batch, (root, cache, done, total), for the
 # page while the rest is read; progress: (done, total) for the waiting page.
-_reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
+# The project's pass, on a thread kept between passes (lib/background.py Worker): no thread
+# made on Blender's every READ_EVERY. Not counted: a pass never reaches a checkpoint().
+_pass = Worker("pipeline-live-read", counted=False)
+_reader = {"result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
            "waiting": [], "in_pass": [], "partial": None, "progress": None}
 
 
@@ -369,6 +444,10 @@ def read_live(root: Path, cache: dict, config: dict, v_prefix: str, on_progress=
         raw = _collect_folder(owner, entries)
         if raw is None:
             continue
+        # Its render history, as read_snapshot_raw() reads it: the Render
+        # form's start and each department's render dot (it read nothing:
+        # neither showed on the live page).
+        raw["render_presets"] = _render_presets(owner)
         try:
             blends = [e.name for e in os.scandir(owner) if e.name.endswith(".blend")]
         except OSError:
@@ -502,11 +581,51 @@ def _read(root, cache, config, v_prefix, extras, first=False):
         changed = changed or work != _reader.get("work")
         # What the edit has (editing/rushes/rushes.json): a push changes no folder either.
         rushes = {"rushes": _rushes_by_name(root), "presence": presence(root)}
+        # The days of the project's progress (config/logs) and the Render form's presets (their
+        # folders listed): read here, off Blender's thread.
+        _reader["history"] = progress_log.days(root)
+        _reader["presets"] = _presets_of(root, config)
         changed = changed or rushes != _reader.get("rushes")
         _reader["result"] = (root, new, changed, extras, work, rushes)
     except Exception as e:  # never die silently: the next pass tries again
         log("WARNING", "live", f"Live page: project not read: {e!r}")
         _reader["result"] = (root, cache, False, extras, _reader.get("work"), _reader.get("rushes"))
+
+
+def _monitor_mod():
+    from ...farm import monitor
+
+    return monitor
+
+
+def _workers_mod():
+    from ...farm import workers
+
+    return workers
+
+
+def _cpu_busy() -> bool:
+    """Blender rendering on its CPU: a render under way, or a 3D view drawn
+    Rendered by Cycles on the CPU. Never raises (False)."""
+    try:
+        if getattr(bpy.app, "is_job_running", None) and bpy.app.is_job_running("RENDER"):
+            return True
+        prefs = bpy.context.preferences.addons.get("cycles")
+        no_gpu = not prefs or getattr(prefs.preferences, "compute_device_type", "NONE") == "NONE"
+        for window in bpy.context.window_manager.windows:
+            scene = window.scene
+            if scene.render.engine != "CYCLES":
+                continue
+            if not (no_gpu or getattr(scene.cycles, "device", "CPU") == "CPU"):
+                continue
+            for area in window.screen.areas:
+                if area.type == "VIEW_3D" and any(
+                    sp.type == "VIEW_3D" and sp.shading.type == "RENDERED" for sp in area.spaces
+                ):
+                    return True
+    except Exception:
+        pass
+    return False
 
 
 # --- the main thread -------------------------------------------------------------
@@ -535,7 +654,7 @@ def _turn(sh: _Shared) -> None:
         # Another project made active: the page follows it -- told it's
         # being read (it reloads on the waiting page), then its data.
         sh.root = Path(root)
-        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0, partial=None, progress=None, shown=None)
+        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0, partial=None, progress=None, shown=None, history=None, presets=None)
         with sh.changed:
             sh.version += 1
             sh.data, sh.body = None, b""
@@ -546,6 +665,7 @@ def _turn(sh: _Shared) -> None:
         _lan["checked"] = clock
         _sync_lan(sh)  # a guest's access ended: off the network
     page_open = clock - sh.last_seen < IDLE_AFTER
+    slower = BUSY_SLOWER if page_open and _cpu_busy() else 1.0
     if page_open:
         # The farm's jobs and machines, read as the Farm tab does --
         # its window closed, nothing else would read them.
@@ -578,6 +698,7 @@ def _turn(sh: _Shared) -> None:
                 if pending.kind == "farm":
                     from ...farm.loop import refresh_step
 
+                    _SLOW.clear()  # the farm changed: read again now
                     refresh_step(soon=True)  # the farm read again now: its change shown
                 continue
             pending.result = _apply(sh.root, pending.review)
@@ -587,10 +708,13 @@ def _turn(sh: _Shared) -> None:
             pending.done.set()
             continue
         _reader["waiting"].append(pending)
-    thread = _reader["thread"]
-    if _reader["result"] is not None and not (thread and thread.is_alive()) and _reader["result"][0] != sh.root:
+    reading = _pass.busy()
+    failed = _pass.take()
+    if failed is not None and failed[0] == "error":
+        log("ERROR", "live", f"Live page: the project's pass failed: {failed[1]!r}")
+    if _reader["result"] is not None and not reading and _reader["result"][0] != sh.root:
         _reader["result"] = None  # the project before: dropped
-    if _reader["result"] is not None and not (thread and thread.is_alive()):
+    if _reader["result"] is not None and not reading:
         _, cache, changed, _reader["extras"], _reader["work"], _reader["rushes"] = _reader["result"]
         _reader["result"] = None
         _reader["cache"] = cache
@@ -608,13 +732,13 @@ def _turn(sh: _Shared) -> None:
         if root_of == sh.root:
             _reader["shown"] = part  # a file's history found in it meanwhile
             _rebuild(sh, force=True, partial=(part, done, total))
-    elif clock - _reader["farm_at"] > 0.5 and page_open:
+    elif clock - _reader["farm_at"] > FARM_EVERY * slower and page_open:
         # The farm moves on its own -- looked at only while a page is open:
         # with none (its tab closed), nothing but this check every turn.
         _reader["farm_at"] = clock
         _rebuild(sh, force=False)
-    if (thread is None or not thread.is_alive()) and _reader["result"] is None and (
-        clock - _reader["at"] >= READ_EVERY and page_open
+    if not _pass.busy() and _reader["result"] is None and (
+        clock - _reader["at"] >= READ_EVERY * slower and page_open
         or sh.data is None
         or _reader["waiting"]
     ):
@@ -622,20 +746,15 @@ def _turn(sh: _Shared) -> None:
         _reader["waiting"] = []
         config = ConfigCache.get() or {}
         _reader["at"] = clock
-        _reader["thread"] = threading.Thread(
-            target=_read,
-            args=(
-                sh.root,
-                dict(_reader["cache"]),
-                config,
-                (config.get("naming") or {}).get("version", {}).get("prefix", "v"),
-                _reader.get("extras"),
-                not _reader["ready"],
-            ),
-            daemon=True,
-            name="pipeline-live-read",
+        _pass.start(
+            _read,
+            sh.root,
+            dict(_reader["cache"]),
+            config,
+            (config.get("naming") or {}).get("version", {}).get("prefix", "v"),
+            _reader.get("extras"),
+            not _reader["ready"],
         )
-        _reader["thread"].start()
 
 
 def _with_window(op, *args, **kwargs):
@@ -944,7 +1063,11 @@ def _push_rushes(raw: dict) -> dict:
             every = []
         wanted = raw.get("sequences")
         sequences = [s for s in every if wanted is None or s in wanted]
-        push_in_background(push_sequence_rushes, root, sequences, bool(raw.get("assets", True)), ConfigCache.get(), user)
+        push_in_background(
+            push_sequence_rushes, root, sequences, bool(raw.get("assets", True)), ConfigCache.get(), user,
+            # Its label: the sequences pushed, names (no words to translate).
+            task=", ".join(sequences[:3]) + (f" +{len(sequences) - 3}" if len(sequences) > 3 else "") or "assets",
+        )
         log("INFO", "live", f"Live page: rushes pushed to editing ({len(sequences)} sequence(s))")
         return {"ok": True, "pushing": "all"}
     renders = (root / "renders").resolve()
@@ -956,7 +1079,7 @@ def _push_rushes(raw: dict) -> dict:
     mp4 = _first_mp4(target)
     if mp4 is None:
         return {"ok": False, "error": "no video in this render"}
-    push_in_background(push_rushes, root, [mp4], user)
+    push_in_background(push_rushes, root, [mp4], user, task=target.name)
     log("INFO", "live", f"Live page: {target.name} pushed to editing")
     return {"ok": True, "pushing": target.name}
 
@@ -983,9 +1106,13 @@ FINISHED_SHOWN = 20  # the farm's finished jobs listed, newest first
 def _farm_data(root: Path) -> dict:
     """The Farm tab's: {"status", "jobs": [{"id", "file", "key" (its
     folder under the project: the page's link to it), "shot", "state",
-    "text", "done", "total", "left", "machines", "user", "at"}], "workers":
+    "text", "done", "total", "left" (seconds, None not timed), "pace",
+    "elapsed", "per_machine" (_per_machine()), "machines", "user", "at"}],
+    "workers":
     [{"name", "status", "file", "mine", "host", "since"}], "me", "presets",
-    "preset"}, from the monitor cache. Memory only."""
+    "preset"}, from the monitor cache -- memory only, but for its roles and
+    presets, read from the share every few seconds (_slow()); its roles, the farm
+    loop's own answers."""
     from ...farm.details import estimate_label, render_left_parts
     from ...farm.loop import _STAGE_WORDS, entry_state
     from ...farm.monitor import REMOVABLE_STAGES, get_monitor_cache
@@ -1024,6 +1151,9 @@ def _farm_data(root: Path) -> dict:
             "preset": j.get("prerender_script") or "",
             "department": j.get("department") or "",
             "range": j.get("frame_range"),
+            # Its images' format, the fps its video compiles at: known once set up.
+            "ext": j.get("output_extension") or "",
+            "fps": j.get("fps"),
             "names": [_machine(cache, u) for u in j.get("machines") or []],
             "pending": stage == "pending",
             # the Farm tab's buttons, where they apply.
@@ -1034,13 +1164,17 @@ def _farm_data(root: Path) -> dict:
             # Waiting for a worker: what it'll take, at its last pace.
             "estimate": estimate_label(j, cache) if j.get("frames_to_render") and stage != "render_start" else "",
             "compile": compiling.get(j.get("job_id")),
+            # Its pace: seconds a frame (the machines' mean), how long in
+            # this step, each machine's own pace and the frame it's on.
+            "pace": j.get("seconds_per_frame"),
+            "elapsed": j.get("elapsed_seconds") or 0,
+            "per_machine": _per_machine(cache, j),
             # Render here: on its own machine, outside the queue; drawn by its 3D view.
             "tags": [t for t in ("local", "viewport") if j.get(t)],
         }
         (finished if state == "finished" else jobs).append(row)
     finished.sort(key=lambda r: r["at"], reverse=True)
-    from ...farm.monitor import is_blender_monitor
-    from ...farm.workers import is_blender_worker, worker_rendering
+    from ...farm.workers import worker_rendering
     from ..core import get_machine_id
 
     mine = get_machine_id() or ""
@@ -1058,6 +1192,19 @@ def _farm_data(root: Path) -> dict:
             "local": bool(w.get("local_only")),
             # Silent: its last heartbeat -- crashed, closed, asleep?
             "since": _iso(w.get("last_heartbeat")) if uuid in silent else "",
+            # Its worker file's identity (farm/workers.py _worker_identity()): the machine's detail.
+            "user": w.get("user") or "",
+            "machine": w.get("machine") or uuid[:8],
+            "blender": w.get("blender_version") or "",
+            "addon": w.get("addon_version") or "",
+            "ffmpeg": bool(w.get("ffmpeg")),
+            "ffmpeg_version": w.get("ffmpeg_version") or "",
+            "protocol": w.get("farm_protocol"),
+            "started": _iso(w.get("started_at")),
+            "beat": _iso(w.get("last_heartbeat")),
+            "done": w.get("renders_done") or 0,
+            "failed": w.get("renders_failed") or 0,
+            "stopping": bool(w.get("stopping")),
         }
         for uuid, w in sorted(
             [*(cache.get("workers") or {}).items(), *((u, w) for u, w in silent.items() if u not in (cache.get("workers") or {}))],
@@ -1067,10 +1214,14 @@ def _farm_data(root: Path) -> dict:
     ]
 
     me = {
-        "worker": is_blender_worker(),
+        # Its machine id: its own card among the Farm tab's Machines.
+        "uuid": mine,
+        # The farm loop's own answers, kept up to date by it: no file read here.
+        "worker": _workers_mod()._this_instance_worker,
         "rendering": worker_rendering(),
-        "host": is_blender_monitor(),
+        "host": _monitor_mod()._last_is_monitor,
         "host_name": " ".join(x for x in (cache.get("lock_user") or "", f"({cache.get('lock_machine')})" if cache.get("lock_machine") else "") if x),
+        "host_now": _host_now(jobs, workers),
     }
     return {
         "status": cache.get("status") or "unknown",
@@ -1080,14 +1231,33 @@ def _farm_data(root: Path) -> dict:
         # The machine time the jobs still need, over the live workers.
         # Said by the page, in its language: {"seconds", "workers", "unknown"}.
         "left": render_left_parts([j for j in cache.get("jobs") or [] if entry_state(j) != "finished"], cache),
-        **_presets(),
+        # Listed by the project's pass (its thread); before the first, here once.
+        **(_reader.get("presets") or _slow("presets", _presets)),
     }
 
 
+# The stages the farm host runs itself (a Blender or an ffmpeg of its own).
+_HOST_STAGES = ("setup_start", "checks_images_start", "compilation_start")
+
+
+def _host_now(jobs: list, workers: list) -> list[dict]:
+    """What the farm host is doing right now, for the Farm tab's head:
+    [{"what" (_STAGE_WORDS' words, said by the page), "file"}] -- its own
+    steps (a setup, a frame check, a video), its worker's render. [] for
+    nothing."""
+    doing = [
+        {"what": j["text"], "file": j["file"]}
+        for j in jobs
+        if j["stage"] in _HOST_STAGES and "local" not in j["tags"]
+    ]
+    doing += [{"what": "rendering", "file": w["file"]} for w in workers if w["host"] and w["status"] == "rendering"]
+    return doing
+
+
 def _presets() -> dict:
-    """The page's Render form: {"presets": [[name, label]], "preset"
-    (the project's default)} -- the Render dialog's picker."""
-    from ...operators.farm_ops import _get_pre_render_scripts, default_pre_render_script
+    """The page's Render form: {"presets": [[name, label]], "preset" (with
+    no department: none)} -- the Render dialog's picker."""
+    from ...operators.farm_ops import _NO_SCRIPT, _get_pre_render_scripts
     from ..config import ConfigCache
 
     from .status import preset_department
@@ -1097,9 +1267,26 @@ def _presets() -> dict:
     departments = [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
     return {
         "presets": items,
-        "preset": default_pre_render_script(config, [tuple(i) for i in items]),
+        "preset": _NO_SCRIPT,
         # The department each preset's name gives, and the one set for each department
         # (Project settings > By department): the form's preset follows its department.
+        "preset_deps": {n: preset_department(n, departments) for n, _ in items},
+        "dept_presets": (config.get("farm") or {}).get("department_presets") or {},
+    }
+
+
+def _presets_of(root: Path, config: dict) -> dict:
+    """_presets() for root, without Blender (the project's pass, on its thread):
+    every preset, as the Render dialog's picker lists them without a file."""
+    from ...operators.farm_ops import _NO_SCRIPT, pre_render_script_items
+
+    from .status import preset_department
+
+    departments = [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
+    items = [list(i[:2]) for i in pre_render_script_items(root, departments, None) if i]
+    return {
+        "presets": items,
+        "preset": _NO_SCRIPT,
         "preset_deps": {n: preset_department(n, departments) for n, _ in items},
         "dept_presets": (config.get("farm") or {}).get("department_presets") or {},
     }
@@ -1114,6 +1301,21 @@ def _iso(value) -> str:
     return str(value or "")
 
 
+def _per_machine(cache: dict, job: dict) -> list[dict]:
+    """A job's machines for its detail on the page: [{"name", "pace"
+    (seconds a frame, None not timed yet), "frame" (the one it's on while
+    the job renders, None)}] -- the machines it was given, then any that
+    timed a frame on it."""
+    paces = job.get("machine_seconds") or {}
+    on = {}
+    if job.get("stage") == "render_start":
+        for claim in ((cache.get("claims") or {}).get(job.get("job_id")) or {}).values():
+            if isinstance(claim, dict) and claim.get("machine"):
+                on[claim["machine"]] = claim.get("frame_in_progress")
+    uuids = list(dict.fromkeys([*(job.get("machines") or []), *paces, *on]))
+    return [{"name": _machine(cache, u), "pace": paces.get(u), "frame": on.get(u)} for u in uuids]
+
+
 def _machine(cache: dict, uuid: str) -> str:
     w = (cache.get("workers") or {}).get(uuid) or {}
     return f"{w['user']} ({w.get('machine') or uuid[:8]})" if w.get("user") else w.get("machine") or uuid[:8]
@@ -1123,7 +1325,8 @@ def _farm_action(raw: dict) -> dict:
     """The Farm tab's buttons, as the Farm tab's: "cancel", "retry",
     "archive" a job, its "priority" (the job file's: the queue reads it
     each tick), "worker" this machine (on / off: a render it's on stopped
-    now -- the page asked first); "render" / "preview": _farm_submit()."""
+    after its frame or now, as the page's two buttons ask: _stop_self());
+    "render" / "preview": _farm_submit()."""
     from ..config import ConfigCache
     from ..core import locked_json
     from ..errors import PipelineError
@@ -1181,8 +1384,7 @@ def _farm_action(raw: dict) -> dict:
             if action == "forget_worker":
                 return {"ok": True} if forget_worker(uuid) else {"ok": False, "error": "it's back: not forgotten"}
             if uuid == get_machine_id():
-                done = _with_window(bpy.ops.m_pipeline.farm_kill_self_worker, "EXEC_DEFAULT")
-                return {"ok": "FINISHED" in done}
+                return _stop_self(bool(raw.get("now")))
             request_worker_stop(uuid, bool(raw.get("now")), get_user(bpy.context))
             return {"ok": True, "note": "on its next tick (about 10 s)"}
         if action in ops and job:
@@ -1204,12 +1406,26 @@ def _farm_action(raw: dict) -> dict:
         if action in ("launch_monitor", "kill_monitor"):
             return _farm_monitor(action, bool(raw.get("force")))
         if action == "worker":
-            op = bpy.ops.m_pipeline.farm_add_self_worker if raw.get("value") else bpy.ops.m_pipeline.farm_kill_self_worker
-            done = _with_window(op, "EXEC_DEFAULT")
+            if not raw.get("value"):
+                return _stop_self(bool(raw.get("now")))
+            done = _with_window(bpy.ops.m_pipeline.farm_add_self_worker, "EXEC_DEFAULT")
             return {"ok": "FINISHED" in done}
     except (PipelineError, RuntimeError, ValueError, OSError) as e:
         return {"ok": False, "error": getattr(e, "message", None) or str(e)}
     return {"ok": False, "error": f"unknown action {action!r}"}
+
+
+def _stop_self(now: bool) -> dict:
+    """This machine's worker stopped from the page: on a render, after its
+    frame or now (the page's two buttons, Blender's popup's two choices);
+    idle, its role given up (farm_kill_self_worker)."""
+    from ...farm.workers import stop_worker, worker_rendering
+
+    if worker_rendering():
+        outcome = stop_worker(kill_render=now)
+        return {"ok": True, "note": "once its frame is written" if outcome == "draining" else ""}
+    done = _with_window(bpy.ops.m_pipeline.farm_kill_self_worker, "EXEC_DEFAULT")
+    return {"ok": "FINISHED" in done}
 
 
 def _farm_monitor(action: str, force: bool) -> dict:
@@ -1342,7 +1558,14 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
     jobs = _farm_data(sh.root)
     from .. import relink
 
+    from . import tasks
+
     relinks = relink.states()
+    # Work under way in the background (Update links, pushes): the page's footer.
+    bg = [
+        {"kind": "relink", "label": j.get("file") or k, "state": j["state"], "message": j.get("message") or ""}
+        for k, j in relinks.items()
+    ] + [{x: t[x] for x in ("kind", "label", "state", "message")} for t in tasks.states()]
     config = ConfigCache.get() or {}
     # The project's preferences (its team, roles, departments...) and this
     # Blender's user and role: changed in Blender, the page follows on the
@@ -1353,10 +1576,10 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
         get_user_role(bpy.context),
         ui_language(),
     )
-    if not force and (farm, jobs, relinks, prefs) == _reader["farm"]:
+    if not force and (farm, jobs, bg, prefs) == _reader["farm"]:
         return
     if partial is None:
-        _reader["farm"] = (farm, jobs, relinks, prefs)
+        _reader["farm"] = (farm, jobs, bg, prefs)
     meta = {
         "project": config.get("project_name") or sh.root.name,
         "scan_started_at": now(),
@@ -1385,13 +1608,13 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
     # Today's progress point while the page runs (written only when it changes), the days for the page.
     if partial is None:
         progress_log.record_today(sh.root, snap)
-    snap["meta"]["history"] = progress_log.days(sh.root)
+    snap["meta"]["history"] = _reader.get("history") or {}
     thumbs: dict[str, bytes] = {}
     data = page_data(snap, thumbs)
     # Its Farm tab: the farm as the Farm tab shows it.
     data["farm"] = jobs
-    # Update links under way or just ended, by folder (lib/relink.py).
-    data["relink"] = relinks
+    # Background work under way or just ended (Update links, pushes): the footer.
+    data["tasks"] = bg
     # Compared without its date: a pass finding nothing new is no news.
     compare = json.dumps({**data, "meta": {**data["meta"], "snapshot": ""}}, ensure_ascii=False, separators=(",", ":"))
     if compare == _reader["compare"]:
@@ -1435,6 +1658,11 @@ def _handler(sh: _Shared):
         def _send(self, code: int, body: bytes, kind: str):
             self.send_response(code)
             self.send_header("Content-Type", kind)
+            # The page and its data, compressed (about a quarter: a phone on the Wi-Fi opens it faster).
+            if len(body) > 1400 and "gzip" in (self.headers.get("Accept-Encoding") or ""):
+                body = _gzip(body)
+                self.send_header("Content-Encoding", "gzip")
+                self.send_header("Vary", "Accept-Encoding")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
@@ -1650,7 +1878,7 @@ def start(root: Path) -> str:
     server = None
     for port in PORTS:
         try:
-            server = ThreadingHTTPServer(("127.0.0.1", port), _handler(sh))
+            server = _Server(("127.0.0.1", port), _handler(sh))
             break
         except OSError:
             continue
@@ -1659,13 +1887,63 @@ def start(root: Path) -> str:
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, name="pipeline-live", daemon=True).start()
     _shared, _server = sh, server
-    _reader.update(thread=None, result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False,
-                   waiting=[], in_pass=[], extras=None, work=None)
+    _reader.update(result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False,
+                   waiting=[], in_pass=[], extras=None, work=None, history=None, presets=None)
     # persistent: kept when a file is opened.
     if not bpy.app.timers.is_registered(_tick):
         bpy.app.timers.register(_tick, first_interval=0.0, persistent=True)
     log("INFO", "live", f"Live page served at {url()}")
     return url()
+
+
+def open_page(root: Path, anchor: str = "") -> str:
+    """The server for root started (start()), its page opened in the
+    browser, on anchor (a file's name, a tab) if given. Returns its URL.
+    Raises OSError when no port is free."""
+    import webbrowser
+    from urllib.parse import quote
+
+    address = start(root)
+    webbrowser.open(f"{address}#{quote(anchor)}" if anchor else address)
+    return address
+
+
+def served_elsewhere() -> bool:
+    """Another Blender on this machine serves the page already: one of
+    PORTS (not this one's) knows this machine's token -- a thumbnail it
+    hasn't is a 404 to it, a 403 to anyone else. Each port asked for an
+    instant, nothing read."""
+    import http.client
+
+    try:
+        token = _token()
+    except OSError:
+        return False
+    own = _server.server_address[1] if _server is not None else None
+    for port in PORTS:
+        if port == own:
+            continue
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=0.3)
+        try:
+            conn.request("GET", f"/thumb/{token}/none")
+            if conn.getresponse().status == 404:
+                return True
+        except OSError:
+            continue
+        finally:
+            conn.close()
+    return False
+
+
+def auto_open(root: Path) -> bool:
+    """The page opened on its own (Preferences > Open the live page): when
+    this Blender doesn't serve it yet and no other one on this machine
+    does -- one tab, not one per Blender. True if it opened."""
+    if running() or served_elsewhere():
+        return False
+    address = open_page(root)
+    log("INFO", "live", f"Live page opened on its own: {address}")
+    return True
 
 
 def stop() -> bool:

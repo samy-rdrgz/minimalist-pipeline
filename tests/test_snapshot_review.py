@@ -27,7 +27,7 @@ const out=await p.evaluate(()=>{const {S,items,A,reviewFile}=MPPage;S.review={na
   A.note(it,{type:'note',dept:null,text:'nice',frames:'f4'});const n=j.notes.find(x=>!x.closed);A.reply(j,n.id,'fixed it');A.fixed(j,n.id);
   A.note(it,{type:'todo',dept:null,text:'clean the keys'});const c=it.notes.find(x=>x.done&&x.type!=='note');if(c)A.fixed(it,c.id,true);
   A.still(it,Object.keys(it.states)[0]);A.toggleReq(it,'layout');A.omit(it,'on_hold','client');A.assignToggle(j,d1,'tom');A.desc(j,'New description');
-  A.plan({name:'sq030_sh090',g:'sq030',kind:'shot',desc:'new',deps:['layout']});MPPage.refresh();return reviewFile()});
+  A.plan({name:'sq030_sh090-100',g:'sq030',kind:'shot',desc:'new',deps:['layout'],shots:[90,100],timeline:[1001,1051,1120]});MPPage.refresh();return reviewFile()});
 await p.reload();
 const kept=await p.evaluate(()=>MPPage.reviewActions());
 const back=await p.evaluate(acts=>{const {items,S}=MPPage;items.forEach(it=>{it.mine={};it.myNotes=[];it.myReplies={};it.setAside=undefined;it.req=null;it.assign=null;it.still={};it.fixed={};delete it.descEdit});
@@ -67,6 +67,11 @@ def main() -> None:
         assert read["author"] == "Léa" and read["role"] == "prod"
         rtk = next(a for a in read["actions"] if a["type"] == "rtk")
         assert rtk["frames"] == (12, 23), rtk
+        # A block planned with its starts and end (the New shot dialog): as the batch's "timeline".
+        cr = next(a for a in read["actions"] if a["type"] == "create")
+        assert cr["shot"] == "090-100" and cr["timeline"] == "1001-1051-1120", cr
+        row = review_import.create_rows(read)["shot"][0]
+        assert row["timeline"] == "1001-1051-1120" and row["frame_end"] == "1120", row
         assert res["kept"] == out["actions"], "the review not kept across a reload"
         key = lambda a: json.dumps(a, sort_keys=True)  # noqa: E731
         assert sorted(map(key, res["back"])) == sorted(map(key, out["actions"])), "not the same once loaded back"

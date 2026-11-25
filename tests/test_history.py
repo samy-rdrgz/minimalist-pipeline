@@ -44,7 +44,12 @@ def main() -> None:
             "file": "ch_bob_v001-stable.blend", "created_at": "2026-10-03T10:00:00+02:00", "created_from": "ch_bob_v001.blend",
             "departments_validated": {"modeling": True, "rig": False},
             "approvals": {"modeling": {"prod": {"by": "ana", "at": "2026-10-03T12:00:00+02:00"}}},
-            "conflict_warning": "v000 worked apart",
+            "conflict_warning": "v000 worked apart", "note": "rig v2, cam rescaled",
+        })
+        write("ch_bob_v003-stable.stablemeta", {
+            "file": "ch_bob_v003-stable.blend", "created_at": "2026-10-06T10:00:00+02:00", "created_from": "ch_bob_v002.blend",
+            "departments_done": {"modeling": True, "rig": True},
+            "approvals": {"modeling": {"prod": {"by": "ana", "at": "2026-10-03T12:00:00+02:00", "carried_from": "ch_bob_v001-stable.blend"}}},
         })
         write("render_history.json", {"entries": [
             {"completed_at": "2026-10-03T12:00:00+02:00", "status": "finished", "department": "modeling",
@@ -55,13 +60,16 @@ def main() -> None:
         ]})
         h = history.file_history(owner)
         files = [v["file"] for v in h["versions"]]
-        assert files == ["ch_bob_v001", "ch_bob_v001-stable", "ch_bob_v002"], files
-        v1, st, v2 = h["versions"]
+        assert files == ["ch_bob_v001", "ch_bob_v001-stable", "ch_bob_v002", "ch_bob_v003-stable"], files
+        v1, st, v2, st3 = h["versions"]
+        # Its validation kept from v001-stable (modeling not worked since): said as such.
+        assert st3["carried"] == {"modeling": {"prod": "ch_bob_v001-stable"}}, st3
         assert v1["sessions"] == [{"by": "lea", "at": "2026-10-02T18:00:00+02:00", "departments": ["modeling"]}], v1
         assert v2["from"] == "ch_bob_v001-stable" and v2["sessions"][0]["departments"] == ["rig"], v2  # a 1.x's name read
         assert v2["saved_by"] == "tom" and not v2["stable"], v2
-        assert st["stable"] and st["done"] == ["modeling"] and st["approvals"] == {"modeling": ["prod"]}, st
+        assert st["stable"] and st["done"] == ["modeling"] and st["approvals"] == {"modeling": ["prod"]} and st["carried"] == {}, st
         assert st["conflict"] == "v000 worked apart", st
+        assert st["note"] == "rig v2, cam rescaled" and v1["note"] == "", (st, v1)  # a version's note, none said
         assert [r["status"] for r in h["renders"]] == ["failed", "finished"], h["renders"]
         r = h["renders"][1]
         assert r["folder"] == "v001-stable_001" and r["machines"] == 2 and r["preset"] == "modeling_default", r

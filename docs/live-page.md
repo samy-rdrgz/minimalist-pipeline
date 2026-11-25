@@ -4,7 +4,7 @@
 
 ---
 
-Since 2.0 the live page replaces the Project monitoring and Farm monitoring windows of 1.x. Blender serves it to your browser (Project panel or Pipeline menu › *Monitor in browser*, Shift+Alt+P; the Farm panel's *Farm in browser*, Shift+Alt+F; a file's *Details in browser* opens it on that file). It is the same page as the [production snapshot](tracking-and-reviews.md), kept up to date while Blender runs. What it shows and how a review works are described in [Tracking & reviews](tracking-and-reviews.md). This page is a tour of its tabs.
+Since 2.0 the live page replaces the Project monitoring and Farm monitoring windows of 1.x. Blender serves it to your browser (Project panel or Pipeline menu › *Monitor in browser*, Shift+Alt+P; the Farm panel's *Farm in browser*, Shift+Alt+F; a file's *Details in browser* opens it on that file). With *Open the live page* ticked in the addon's preferences, it opens by itself when Blender starts with a project, or when another project becomes active -- once: not when this Blender or another one on the machine serves it already. It is the same page as the [production snapshot](tracking-and-reviews.md), kept up to date while Blender runs. What it shows and how a review works are described in [Tracking & reviews](tracking-and-reviews.md). This page is a tour of its tabs.
 
 The screenshots come from the demo project in `tests/fixtures/` (the farm and the history are made up).
 
@@ -15,7 +15,7 @@ The screenshots come from the demo project in `tests/fixtures/` (the farm and th
 <img src="images/live-shots.png" alt="The live page: the Shots tab, a file's detail on the right">
 
 - **Left**: the tree of sequences and files, each with its progress.
-- **Middle**: the list, a row per file, with a diamond per department. To keep it light:
+- **Middle**: the list, a row per file, with a diamond per department. A dot at a diamond's bottom left: that department has a render of its own made after its last session; faint, its render is older than its last session; none, never rendered (the tooltip says when). To keep it light:
   - a state's words (*Validated · 1 note*) show on the row hovered or selected, the diamond says the rest; so do Progress's figures and the Renders column's words (its icons stay), a sequence's *Play the sequence* / *+ shot* (its header hovered), the outliner's figures, Breakdown's figures (the bar hovered), the buttons of the detail's departments (the card hovered) and of its notes (Reply, Fixed, the pen: the note hovered) -- faded or folded in, with a mouse only;
   - a file's versions (`v013 · stable v012 · 3 shots`) show on the selected row only;
   - *Progress* is two bars, Done in blue and Validated in pink (their words in the tooltip);
@@ -89,14 +89,17 @@ The figures per section, the schedule's pace, the table by sequence (shots, then
 
 <img src="images/live-farm.png" alt="The Farm tab">
 
-The farm's jobs by state: in progress, waiting, failed and finished. The rendering time left is shown above the list. A click on a job opens its detail:
+The farm's jobs by state: in progress, waiting, failed and finished. The queue's rendering time left, and when it should all be done, is in the status bar at the bottom; each render's is under its bar. ↑ ↓ go from job to job. A click on a job opens its detail:
 - its steps, frames, machines and who sent it
+- while it renders: the time left and when it should be done, its time per frame, how long it's been on this step, and each machine's time per frame and the frame it's on
+- what went wrong, as in Blender's job details: a chunk that failed and why (out of memory, crash...), a frame stuck, the machines taken off it
+- its steps, each with the time since the one before
 - its priority (− / +)
 - *Cancel*, *Retry*, *Archive*, *Recompile*, and *Remove from the queue* while nothing has rendered yet
 - its file, folder and logs
 
 On top:
-- **This machine**: *Make it a worker* / *Stop being a worker*.
+- **This machine**: *Make it a worker* / *Stop being a worker* -- while it renders, a popup asks: *Stop after this frame* / *Stop now* (see [Farm](farm.md), Stopping a worker).
 - **The farm host**: *Launch the farm*, *Take the farm over* (when it's stuck, asked twice) and *Stop the farm* (asked twice; the renders running finish, the queue is kept).
 
 <img src="images/live-farm-job.png" alt="A job's detail">
@@ -117,6 +120,8 @@ See [Farm](farm.md).
 <img src="images/live-phone-list.png" alt="Phone: Review" width="240"> <img src="images/live-phone-todo.png" alt="Phone: To do" width="240"> <img src="images/live-phone-farm.png" alt="Phone: Farm" width="240">
 
 *Share with a phone…* (Pipeline menu, or the icon beside *Monitor in browser*) gives someone a time-limited access with a QR code.
+
+With Blender's *Allow Online Access* off (Preferences › System, or `--offline-mode`), the page still works on this machine (it never leaves 127.0.0.1) but isn't shared: no access for a phone is made, and the running ones are off the network until it's back on.
 
 On the phone they get **Review**, **To do** and **Farm** tabs. A swipe sideways on the video goes to the next or previous shot; a panel (Render, a version…) closes pulled down by its header. The page goes full screen at the first touch; the ⚙ menu leaves it (remembered) or goes back to it -- not on an iPhone, whose browser doesn't allow it. Reviewing, they write retakes, remarks and to-dos, mark a retake fixed or a to-do done, and reopen a closed one. The farm is read-only unless the access allows driving it (launch, stop, renders, priorities). Nothing is ever opened on the machine serving the page.
 

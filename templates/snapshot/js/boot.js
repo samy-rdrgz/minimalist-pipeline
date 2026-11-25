@@ -39,6 +39,7 @@ restoreReview();
     S.sel = it.name;
     S.ws = it.kind;
   } else if (h === 'farm' && LIVE) S.ws = 'farm';
+  else if (['todo', 'links', 'synth'].includes(h)) S.ws = h;
   else if (h === 'share' && LIVE && !guest()) setTimeout(shareDialog, 0);
 }
 document.documentElement.dataset.guest = guest() ? '1' : '';
@@ -54,10 +55,27 @@ matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', () => {
 MOB_Q.addEventListener?.('change', () => renderAll());
 if (!LIVE && S.ws === 'farm') S.ws = 'shot';
 /* The video follows each view drawn: into the stage it shows. */
+/* F5 keeps where you were: the file (or the workspace) in the address (#its name, #farm),
+   the detail's tab for this browser tab (sessionStorage) -- set as each view is drawn. */
+try {
+  const t = sessionStorage.getItem('mp-snapshot.tab');
+  if (t && S.sel) S.tab = t;
+} catch (_) {}
+function syncPlace() {
+  const h = (S.ws === 'shot' || S.ws === 'asset') && S.sel ? S.sel : S.ws;
+  if (decodeURIComponent(location.hash.slice(1)) !== h)
+    try {
+      history.replaceState(null, '', location.pathname + location.search + '#' + encodeURIComponent(h));
+    } catch (_) {}
+  try {
+    sessionStorage.setItem('mp-snapshot.tab', S.tab || '');
+  } catch (_) {}
+}
 renderProps = (f =>
   function () {
     const r = f.apply(this, arguments);
     mountVideo();
+    syncPlace();
     return r;
   })(renderProps);
 renderWide = (f =>
@@ -70,6 +88,7 @@ mRender = (f =>
   function () {
     const r = f.apply(this, arguments);
     mountVideo();
+    syncPlace();
     return r;
   })(mRender);
 renderAll();

@@ -103,7 +103,7 @@ function exportBook() {
         n.text,
         n.author,
         n.team ? T('team') : n.role || T('team'),
-        n.date ? fmtD(n.date) : '',
+        n.date ? fmtAbs(n.date) : '',
         n.frames || ''
       ])
     )

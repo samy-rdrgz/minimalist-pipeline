@@ -87,8 +87,10 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
     def draw(self, context):
         # Read at a line's length whatever the window's width: a centred
         # column, the text wrapped to it.
+        # 900 px at 100 % UI scale: the same column, in words, at any scale.
         width = context.region.width
-        side = (1 - 900 / width) / 2 if width > 900 else 0.0
+        column = 900 * (context.preferences.system.ui_scale or 1.0)
+        side = (1 - column / width) / 2 if width > column else 0.0
         layout = self.layout
         if side:
             # margin | text | margin: each split's first item takes its factor.
@@ -101,7 +103,7 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
         draw_onboarding(
             layout,
             context,
-            max_width=min(120, region_char_budget(context, width_px=None)),
+            max_width=min(120, region_char_budget(context, width_px=None) if not side else int(column / (7.0 * (context.preferences.system.ui_scale or 1.0)))),
             level_hint=False,
         )
         layout.separator(factor=2)
@@ -109,22 +111,16 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
         if prefs:
             # Two lines: the question, then the switch -- on one, the text
             # was cut.
-            level = layout.column(align=True)
+            level = layout.box().column(align=True)
             level.label(
                 text="Familiar with the add-on? Advanced hides the tips.",
                 icon="HIDE_OFF",
             )
             level.row(align=True).prop(prefs, "experience_level", expand=True)
-            layout.separator(factor=1)
-        # How to start, at hand: a project to make, or one to find.
-        actions = layout.box().row()
+            layout.separator(factor=2)
+        # A project to make or join: START, at the top.
+        actions = layout.row()
         actions.scale_y = 1.2
-        actions.operator(
-            "m_pipeline.create_project", text="New project", icon="FILE_NEW"
-        )
-        actions.operator(
-            "m_pipeline.find_project", text="Find existing project", icon="ZOOM_ALL"
-        )
         actions.operator("wm.window_close", text="Close", icon="CHECKMARK")
         # A window's height of blank below, as the others: the Tool tab's
         # Options and Workspace out of sight.

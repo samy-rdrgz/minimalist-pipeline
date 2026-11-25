@@ -3,11 +3,13 @@
 import json
 import os
 import re
+import threading
 import time
 from pathlib import Path
 
 import bpy
 
+from .background import Worker
 from .core import addon_pref, headless, json_get, locked_json
 from .errors import PipelineError
 
@@ -111,6 +113,11 @@ class ConfigCache:
     # get() is called many times per redraw: within this window it returns
     # the cached config without a stat (see NOTES.md, "Sidebar redraw").
     _VALIDATE_TTL = 2.0
+    # On Blender's thread the stat itself goes to a thread of its own: on a slow share it held the
+    # interface 0.1 to 0.3 s every _VALIDATE_TTL (the live page's profile). Its answer is used at the
+    # next get(): a change seen a check later, at most. Other threads (and no config yet): at once.
+    _stat_job = Worker("pipeline-config-stat")  # a thread kept between checks (lib/background.py)
+    _stat_seen: tuple | None = None  # (config file, its mtime or None unreadable), the job's answer
 
     @classmethod
     def get(cls) -> dict:
@@ -127,6 +134,27 @@ class ConfigCache:
             and cls._path == config_file
             and checked_at - cls._checked_at < cls._VALIDATE_TTL
         ):
+            return cls._cache
+        if (
+            cls._cache is not None
+            and cls._path == config_file
+            and threading.current_thread() is threading.main_thread()
+        ):
+            seen, cls._stat_seen = cls._stat_seen, None
+            cls._checked_at = checked_at
+            if seen is not None and seen[0] == config_file and seen[1] is not None and seen[1] != cls._mtime:
+                cls._cache = read_project_config(project_root)  # changed: read again (rare)
+                cls._mtime = seen[1]
+                return cls._cache or {}
+            if not cls._stat_job.busy():
+
+                def stat(path=config_file):
+                    try:
+                        cls._stat_seen = (path, path.stat().st_mtime)
+                    except OSError:
+                        cls._stat_seen = (path, None)  # out for a moment: the last good config kept
+
+                cls._stat_job.start(stat)
             return cls._cache
         try:
             current_mtime = config_file.stat().st_mtime
@@ -189,6 +217,7 @@ class ConfigCache:
         cls._mtime = None
         cls._path = None
         cls._checked_at = 0.0
+        cls._stat_seen = None
 
     @classmethod
     def get_path(cls, name: str) -> Path:
@@ -202,6 +231,11 @@ class ConfigCache:
         dictionary = {
             "config": config,
             "presets": presets,
+            # Render presets by the kind of file they render, the creation
+            # scripts, ffmpeg's (lib/presets.py; before 2.0, all loose in presets/).
+            "presets_render_shots": f"{presets}/render_shots",
+            "presets_render_assets": f"{presets}/render_assets",
+            "presets_creation": f"{presets}/creation",
             "ffmpeg_presets": f"{presets}/ffmpeg_presets",
             "logs": logs,
             "logs_archives": f"{logs}/archives",
@@ -222,7 +256,8 @@ class ConfigCache:
             "pipeline_log_file": f"{logs}/pipeline_log.jsonl",
             "sessions_log_file": f"{logs}/sessions_log.jsonl",
             "monitor_file": f"{farm}/monitor.lock",
-            "asset_preset_file": f"{presets}/asset_file_preset.py",
+            "asset_preset_file": f"{presets}/creation/asset_file_preset.py",
+            "shot_preset_file": f"{presets}/creation/shot_file_preset.py",
             # Production snapshots' default folder (the Snapshot button).
             "snapshots": "snapshots",
         }
@@ -415,17 +450,20 @@ def project_team(config: dict | None = None) -> list[str]:
     return list(dict.fromkeys(str(n).strip().lower() for n in names if str(n).strip()))
 
 
-def ordered_departments(departments) -> list[str]:
-    """departments in the project's order -- Edit project's asset
-    departments, then its shot ones --, any it doesn't list after them, as
-    given. As given with no active project to read it from."""
+def ordered_departments(departments, kind: str | None = None) -> list[str]:
+    """departments in the project's order -- Edit project's departments of
+    kind ("shots" / "assets", a file's: its own list first, a department
+    named in both lists at its place there), then the other kind's (assets'
+    first for None) --, any it doesn't list after them, as given. As given
+    with no active project to read it from."""
     deps = list(departments or [])
     try:
-        config = ConfigCache.get()
+        config = ConfigCache.get() or {}
     except Exception:
         return deps
     order = []
-    for key in ("assets_departments", "shots_departments"):
+    keys = ("shots_departments", "assets_departments") if kind == "shots" else ("assets_departments", "shots_departments")
+    for key in keys:
         for d in config.get(key) or []:
             if str(d).lower() not in order:
                 order.append(str(d).lower())

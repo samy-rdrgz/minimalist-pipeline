@@ -6,6 +6,160 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- **A version's note**: Increment (and Increment as stable) has an optional
+  *What changed* line -- "fixed the arm", "cam rescaled" -- kept in the
+  version's `.wipmeta` / `.stablemeta` (`note`), written in the log, shown
+  in the live page's file detail > Versions. Not asked when the version is
+  proposed on open (nothing changed yet).
+- Live page, New shot (+ shot): Blender's New shot dialog -- the sequence
+  and the shot prefix fixed, a row per shot (its number, its start frame),
+  + Shot for a block, the end frame; the name it makes, the timeline out of
+  order, a number taken (refused for a shot over a shot, else Create
+  anyway). The review's create carries each start ("timeline"), the
+  import makes the file with it. New asset: its prefix fixed, the name as
+  Blender cleans it.
+- Live page, Watch large: Loop / Next beside the sound -- at the end, the
+  same video again, or the sequence's next shot (Play the sequence's); the
+  choice kept while the page is open.
+- Live page, What's new: a cross per line, Clear all at the top (the phone:
+  Clear all).
+- Live page, Farm › Machines: a machine's name opens its detail, the file
+  its worker renders opens that file. The list's Renders column: a file's
+  job opens it in Farm.
+
+### Changed
+
+- Live page, background work in the footer: Update links and pushes of the
+  rushes said while under way (a spinner, how many), then done or failed
+  (✓ / ✕, a toast once, every one with its words in the tooltip) -- a relink
+  refused (the new stable lost data the file links) was in the log only.
+  The data it lacks says its type: "Lustre-rig (object), Lustre-rig
+  (collection)".
+  A file Blender opens from the page says so too, until Blender answers
+  again (often busy some seconds).
+- Live page, Links: an asset whose newer stable the shots don't link yet
+  has *Update the files linking it (n)* -- each of those files relinked --
+  apart from *Update its links* (its own). The one button relinked the asset
+  itself only: "its links are up to date", nothing done.
+- Live page: F5 keeps where you were -- the file selected (or the
+  workspace: Farm, To do, Links, Synthesis) in the address (#its name), the
+  detail's tab for that browser tab. The address is a link to it as well.
+- Live page, Versions: a validation a stable kept from an earlier one (its
+  department not worked since) is on a line of its own -- "Still validated: Modeling (prod) · since
+  v002-stable", greyed -- apart from the ones given to that stable; a version's date on its
+  name's line.
+- Welcome window: its text column follows Blender's UI scale (it stayed
+  900 px wide, cramped at 150-200 %).
+- Blender tooltips brought up to date: a shot's/asset's description shows on
+  the live page (no tracking panel), Render sends this file or several from
+  the list, Stop this worker asks after this frame or now, your name drives
+  notes, renders and validations.
+- Live page, a machine's detail: what its worker file says too -- user,
+  machine id, Blender and add-on versions, ffmpeg (its version, or none: no
+  video compiled there), worker since, last heartbeat, renders done/failed.
+- Live page, dates: under two weeks old, said relative to today -- today
+  its time alone, "yesterday 09:10", then "5 days ago"; older, the date.
+  A note's exact date on its hover; exports and "since …" keep the date.
+- Live page, Farm > Machines: another machine's card has Stop its worker
+  (a request it reads on its next tick; rendering, asked after this frame
+  or now), or Forget this machine once silent -- no need to open its detail.
+- Live page, a note's head: its author is said while the note is hovered,
+  over its date, instead of taking room on the line -- the head wraps less.
+- Live page, Farm > Machines: the farm host's card says it is the host and
+  what it runs itself (a setup, a frame check, a video), each file a link --
+  an idle worker there while shots wait no longer reads like a bug.
+- Live page, a note's edit: its departments, its frames (typed, the frame
+  shown, or none) and a block's shot change too, not only its words --
+  a note not sent yet at once, a sent one through the review's edit
+  (Blender's import writes them: lib/monitoring/tracking.py
+  set_entry_text()). The change shown on the note until sent. Its frames
+  after a fixed "f"; a form's departments and shots on one line, scrolled
+  sideways. The page's text fields in its own font (the browser's before:
+  their words sat high). The chips scrolled alone, their label kept,
+  faded on the side where more is, room left for the bar. A block's note
+  with no frame says its shot too.
+- Live page, a block: a note written on one of its shots marks that
+  shot's timeline only; its frame clicked (its notes, Watch large's)
+  puts that shot's video in the player, then goes to the frame -- the
+  shot named before the frame when it isn't the one shown. A note
+  written in Watch large keeps the shot watched; on the whole block's
+  video, the shot its frame falls in (each shot's start from its own
+  renders); written on the phone, the same. Its shot always said before its
+  frame, and in Watch large's writer; a note being written follows the
+  shot picked.
+- Live page, Render to check: a department's renders of a block's shots
+  (two or more) checked at once -- "All checked…" on that department's
+  line, the dialog's departments as for one.
+- Live page, To check: a render checked on the page told apart by its
+  folder too, forgotten once Blender's data drops it -- a newer render of
+  the same shot and department showed only after a reload; the file out
+  of the filter meanwhile.
+- Live page, Render checked: a render's departments after its own (an
+  animation render: lighting, render) left as they are -- not in what it
+  shows.
+- Live page, To do: To work on leaves out the departments waiting on
+  something else; Oldest first's icon a sort, no hourglass.
+
+- Live page, Breakdown: one view instead of three modes (Done, Validated,
+  Retakes). A cell's bar shows its departments' states -- validated, done,
+  in retake (done with an open retake, one or ten), in progress (reworked
+  too: being fixed), to do (not started, retake or not) -- its figure the
+  Done the list shows, its tooltip the counts. Their colours in the
+  filters' place. A second view, Renders: each department's own latest
+  render -- to check, up to date, older than its latest session, never
+  rendered -- its figure the share up to date.
+
+- Live page, Farm tab: a job's detail says its format, under its frames --
+  its images' format and the fps its video compiles at (the scene's, read
+  when the farm sets it up), as Blender's job details do.
+
+- Live page, Farm tab: a job's icon and name centred in its row; with a
+  mouse, its step's words open under the name on hover, pushing it up --
+  the row keeps its height.
+- Live page, Farm tab: a job in an ffmpeg pass (frame check, compilation,
+  preview) shows that pass's progress bar, on the desktop and the phone.
+
+- Live page, Watch large: the stage's inner shadow under the video and the
+  thumbnail, no longer over them.
+
+- Live page: the page and its data sent compressed (gzip) when the browser
+  takes it: about 180 KB instead of 670 to open it on a phone.
+
+- Live page: a scrolled box fades at its bottom (and its top) while
+  something is hidden past the edge: the list, the outliner, the detail,
+  Watch large's panel. Under the list's sequence header, over the writer's
+  band.
+
+- Live page: the menus are as tall as their items while the window has
+  room (they scrolled past 420 px); above their button when there's more
+  room there.
+
+- The Farm tab says what the farm host is doing right now: "Now: setting
+  up sq010_sh020_v003 · rendering sq030_sh040_v005", or nothing to do.
+
+- The welcome, shorter: New project / Join a project first (joining a
+  team: never a new one), your name (flagged while it's still the
+  random one) and validation role, what's ready (name, project, FFmpeg,
+  a shared drive rather than a Dropbox / Google Drive / OneDrive /
+  iCloud folder; greyed once ticked), the live page (Monitor in browser,
+  Open the live page), the four things to know a line each.
+
+- The live page's Render form opens on the furthest department worked or
+  done, as the Render dialog does.
+
+- Preferences › *Open the live page*: the project's page opens in the
+  browser by itself when Blender starts with a project active (tried a
+  few times, as the auto worker is), or when another project becomes
+  active -- once: not when this Blender or another one on the machine
+  serves it already (an open page follows the new project by itself).
+
+- A shot creation preset, as the assets have one:
+  `config/presets/creation/shot_file_preset.py`, run fresh at every shot's
+  creation, lays out its collections (CAM / SET / ASSETS by default) and
+  says which one holds the cameras; the cameras and their markers stay
+  the addon's. A broken one falls back to CAM / SET / ASSETS, never
+  blocks the creation. Installed in every project, opened or new.
+
 - The phone writes to-dos (a third type in the box), marks a retake fixed
   or a to-do done, and opens a closed one again (the closed ones folded
   under the notes, Reopen) -- as the desktop does.
@@ -425,6 +579,25 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- The Render dialog opens on the furthest department the file was worked
+  or done for -- since its latest stable, or at it: the latest stage, then
+  the latest in Edit project's order (layout worked, layout and animation
+  done: animation), its preset with it; on its last render's department
+  for a file with none.
+
+- The project's presets in folders: `config/presets/render_shots/` and
+  `render_assets/` (the render presets of shots and of assets: the Render
+  dialog of a shot lists the shots' only), `creation/` (what a new asset
+  or shot file holds), `ffmpeg_presets/` as before. Migrate old data moves
+  the ones still loose in `presets/` (a render preset by its department's
+  kind); until then they're read where they are. Rename preset moves one
+  into the folder of its new department's kind.
+
+- Project settings' Pre-render line gone: each department has its own
+  preset (By department…), and a render with no department starts with
+  none -- the one project-wide default is dropped from the config at the
+  next save.
+
 - Windows Defender no longer takes the package or the page's parts for a
   trojan (Trojan:Win32/MalUri, a false alarm on URI-like text): the live
   page's thumbnails served by Blender instead of inline, the wordmark's
@@ -512,6 +685,162 @@ All notable changes to this addon. Dates are release dates.
   these buttons.
 
 ### Fixed
+
+- Live page: Blender's viewport lagged while a page was open, above all
+  with a viewport rendering in Cycles on the CPU. The page's data, built
+  again twice a second as the farm's counters moved, read the shared folder
+  on Blender's main thread (this Blender's farm roles, the presets, the
+  progress log) and fought Cycles for the cores. Now: the roles from the
+  farm loop's memory, the presets kept 10 s, the progress log read with the
+  project's pass on its own thread, the farm looked at every 2 s -- and
+  while Blender renders on its CPU (a Cycles CPU viewport, a render), the
+  page's passes and farm looks three times less often. The presets are
+  listed by that pass too, and the project's config is checked for changes
+  on a thread of its own (it held Blender's interface 0.1 to 0.3 s every
+  2 s on a slow share -- the whole add-on's, not only the page's). The
+  farm's reads, the config's check and the page's passes each run on a
+  thread kept between runs: a new thread every 2 s made Blender's thread
+  wait for it to start, tens of ms with Cycles on every core.
+
+- Live page: the video jumped (its picture squeezed a quarter of a second)
+  every 2 s in Watch large on Firefox while the farm rendered. Each pass's
+  redraw took the video out of its stage and put it back; it is now left in
+  place.
+
+- Live page, Breakdown: Done counted as the list and "How it's counted" say --
+  in progress, reworked and done with an open retake at their weights, a
+  sequence the mean of its files -- not 100 % done or 0 % (in progress read
+  0 %). Its spreadsheet export too.
+
+- Live page: the white pills over the bars (Breakdown, the head's figures)
+  blur what's under them again: the blur sat on a layer of the pill's own,
+  with nothing under it to blur.
+
+- Live page: a page closed or reloaded while answered no longer prints a
+  traceback in Blender's console (ConnectionAbortedError).
+
+- Live page: the folded panels' side tabs sit under the list's sequence
+  header, not over it; Watch large's full-screen header tab hangs from the
+  header (or the screen's top edge), not from the video's area; a button
+  alone in its group (the Render form's Version) has its four corners
+  round; the Machines card puts "not saved yet" under the file's name.
+
+- Watch large: on the left two lines -- the transport, then the version
+  (A) and the comparison (B) --, the strip on the right across both,
+  narrowing (it scrolls) rather than going under. The stage has a shadow
+  inside its edge, as the timeline's. A version's button, closed,
+  says its file's version and department ("v004 · Fix anim", its render's
+  number when two would read the same); its menu and tip the whole.
+- Watch large: with A / B shown (a file with several versions), the strip
+  fell under them on the left; it stays at the line's right, narrowing
+  (it scrolls) before it wraps, at the right then too. Its edges fade
+  where thumbnails hide past them.
+- The Farm tab: this machine's state and its worker switch are its own
+  card in Machines (first), the farm's -- host, monitor, what it does,
+  Stop the farm -- Machines' head; on top only when the farm is stopped
+  or stuck, with Launch / Take over. A machine's card says its worker
+  first, then its files open -- no more "no file open".
+- Watch large: a block's first shot is full size, as a file's; its name
+  over the others while one of its shots is watched or it's hovered.
+- The live page still blinked what shows on hover at each update: an
+  update now patches the page's areas -- only what changed, the same
+  elements kept (hover, scroll, images) -- instead of redrawing them;
+  the farm job's detail too, refreshed every 10 s.
+- Watch large: the strip keeps its scroll across updates, and the wheel
+  scrolls it sideways. A block's frame shows its full name only while one
+  of its shots is watched; its state's dot by its first shot's name.
+- The live page: an open menu (assign, sort…) closed at each data update;
+  the update now waits for it to close, as for a field being typed in.
+- Render to check: Watch stays on the only render left when there's
+  something else to watch (a block's other shots, other versions).
+- Watch large: a block of shots shows a thumbnail per shot in the strip,
+  framed together (and Whole for its renders made whole): a click
+  watches that shot. The stage shows the shot's own thumbnail.
+- The live page: what shows on hover blinked at each refresh under a
+  still mouse (the list redrawn, the browser re-reading :hover on the next
+  move only); it's kept on what the mouse is on until it moves.
+- "You" and "to check" turn green (#2fdcae, #0aa57c light), out of the
+  done blue's turquoise; a department with a render to check has its
+  render dot green.
+- A department after one in progress read To do: it's Waiting now until
+  every earlier stage is done ("anim not done").
+- The live page respects Blender's *Allow Online Access*: off, it's
+  still served on this machine, but never on the network -- no access
+  for a phone made, the running ones off the network until it's back on
+  (their dialog says why).
+- The farm host as its only worker set every job up before rendering any:
+  the first video came last. Holding its worker back while setups wait is
+  for the other machines (set-up jobs ready for them); alone, it goes job
+  by job -- a set-up job rendered as soon as it's free, the next setup
+  after, never both at once.
+
+- Stopping a worker on a render from the live page never asked "after
+  this frame or now?": this machine's stopped now, another machine's
+  after its frame. *Stop being a worker* (Farm tab) and *Stop* (a
+  machine's detail) now ask in a popup while it renders -- *Stop after
+  this frame* / *Stop now* --, as Blender's *Stop this worker* does.
+  The popup says the frame it's on and its time per frame.
+
+- The live page's Farm tab never showed a render's time left, though
+  Blender sent it: now under each render's bar, and in its detail with
+  when it should be done, the time per frame, how long on this step, and
+  each machine's time per frame and the frame it's on.
+
+- A job's detail on the live page also says what went wrong -- a
+  chunk's failure and why, a frame stuck, the job stopped, the machines
+  taken off -- and its steps with the time between them: Blender's own
+  job detail (farm/details.py job_detail()), read when the job is
+  picked, again every 10 s while it's on.
+
+- The live page's status bar follows the tab: on the Farm tab, the
+  queue's rendering time left and when it should all be done (it pushed
+  the job filters onto two lines above the list), and ↑ ↓ for the jobs;
+  elsewhere the files' keys (the review's only in a review) and the
+  project's progress.
+
+- Watch large, full screen: the header's tab hung from the video's top,
+  inside the picture, not from its area's edge; and moved to the
+  screen's edge once the header was hidden. Now on the area's top edge
+  both ways.
+
+- The guided tour's box was the dialogs' veil, see-through with no blur:
+  now glass, blurred, as the menus.
+
+- A dot at the bottom left of a department's diamond (the list, the
+  file's detail, Watch large, the phone): that department has a render
+  of its own started after its last session; faint, its render is older
+  than its last session; none, never rendered. Its tooltip and the
+  detail say when; in the legend too.
+  The live page now reads each folder's render history as the snapshot
+  does: it never did, so neither the dots nor the Render form's last
+  preset per department showed there.
+
+- A farm job picked has the same blue rail on its left as a file picked.
+
+- The live page's list: the sequences' blocks edge to edge on the
+  screen's ground, the gutter between them and above the first the one
+  between areas (--gap), their headers the area header's tint (blurred,
+  square once stuck at the top), their rows striped as the outliner's, no line
+  between them (the departments' header keeps its own). The Farm tab's
+  groups alike; a job's machines, sender, date and step's words shown on
+  the job hovered or picked (its group and icon say its state; its bar
+  and time left always). A block's top
+  corners on its header (its blur isn't clipped by the block's radius).
+- A sequence's bars named again (DONE / VALIDATED, on the header
+  hovered, as its buttons; their figures and title always), their track
+  seen at 0 %.
+- A file's farm job says its department (the row's tag, the Renders
+  column's words).
+- "To review again" (--st-old) lighter, #a35ca3: it was the only state
+  colour under 3:1 on the panels.
+- No white written in the page's CSS any more: the text on the
+  selection --on-sel, on a strong state's colour the new --on-state, a
+  QR code's ground --qr-paper; the dark ink on a state --on-st.
+
+- A shot's departments in the shots' order (Increment version, Mark
+  stable, the panels): a department named in both lists, an asset
+  "lighting" and a shot "lighting", came first, at its place among the
+  assets'. Each file now follows its own kind's list first.
 
 - The live page's Farm tab: *Remove from the queue* on a job not set up yet
   always failed ("it started meanwhile") -- the page didn't say it was

@@ -89,7 +89,22 @@
 "farm": [],
 "validated": {},
 "render_behind": false,
-"to_check": []
+"to_check": [
+"sh040 v012"
+],
+"render_fresh": {
+"animation": {
+"fresh": true,
+"at": "2026-11-20T10:00:00"
+},
+"render": {
+"fresh": true,
+"at": "2026-11-21T10:00:00"
+}
+},
+"to_check_departments": [
+"render"
+]
 },
 {
 "name": "sq030_sh060",
@@ -138,7 +153,13 @@
 "animation": true
 },
 "render_behind": false,
-"to_check": []
+"to_check": [],
+"render_fresh": {
+"render": {
+"fresh": false,
+"at": "2026-11-18T10:00:00"
+}
+}
 },
 {
 "name": "sq030_sh070",

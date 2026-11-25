@@ -24,6 +24,8 @@ function v6Click(t) {
   if (shs) {
     S.shot[S.sel] = shs.dataset.shot;
     S.ver[S.sel] = 0;
+    // A note being written: on the shot now watched.
+    if (S.form) S.form.shots = writeShot(cur()) ? [writeShot(cur())] : [];
     renderProps();
     renderWide();
     return true;
@@ -105,21 +107,47 @@ function v6Click(t) {
     return true;
   }
   const pd = t.closest('[data-pld]');
-  if (pd) {
-    pd.setAttribute('aria-pressed', pd.getAttribute('aria-pressed') !== 'true');
+  if (pd && PL) {
+    PL.deps.has(pd.dataset.pld) ? PL.deps.delete(pd.dataset.pld) : PL.deps.add(pd.dataset.pld);
+    pd.setAttribute('aria-pressed', PL.deps.has(pd.dataset.pld));
+    return true;
+  }
+  if (t.closest('[data-pladd]') && PL) {
+    // One more shot after the last: its number +10, its start a step on (Blender's Add).
+    const l = PL.shots[PL.shots.length - 1];
+    PL.shots.push({ n: (l.n || 0) + 10, s: (l.s || 0) + plStep });
+    if (PL.end <= (l.s || 0) + plStep) PL.end = (l.s || 0) + plStep * 2;
+    planDraw();
+    return true;
+  }
+  const pr = t.closest('[data-plrm]');
+  if (pr && PL && PL.shots.length > 1) {
+    PL.shots.splice(+pr.dataset.plrm, 1);
+    planDraw();
+    return true;
+  }
+  const pw = t.closest('[data-planyway]');
+  if (pw && PL) {
+    PL.anyway = !PL.anyway;
+    planLive();
     return true;
   }
   const po = t.closest('[data-plok]');
-  if (po) {
-    const name = $('#pl-n').value.trim();
-    if (!name) return true;
+  if (po && PL) {
+    const [err, warn] = plCheck();
+    if (err.length || (warn.length && !PL.anyway)) return true;
+    const name = plName(),
+      sh = PL.kind === 'shot',
+      ord = [...PL.shots].sort((a, b) => a.n - b.n);
     A.plan({
       name,
-      g: po.dataset.plok,
-      kind: po.dataset.plk,
-      desc: $('#pl-d').value.trim(),
-      deps: [...document.querySelectorAll('[data-pld][aria-pressed=true]')].map(b => b.dataset.pld)
+      g: PL.g,
+      kind: PL.kind,
+      desc: PL.desc.trim(),
+      deps: DEPTS[PL.kind].filter(d => PL.deps.has(d)),
+      ...(sh ? { shots: ord.map(x => x.n), timeline: [...ord.map(x => x.s), PL.end] } : {})
     });
+    PL = null;
     $('#dlg').hidden = true;
     refresh();
     msg(T('{name}: made when your review is imported', { name }));
@@ -218,6 +246,13 @@ function v6Click(t) {
     renderAll();
     return true;
   }
+  const sv = t.closest('[data-sview]');
+  if (sv) {
+    S.sview = sv.dataset.sview;
+    renderQuick();
+    renderList();
+    return;
+  }
   if (t.closest('[data-weights]')) {
     S.weights = !S.weights;
     renderQuick();
@@ -253,13 +288,15 @@ function helpDlg() {
     ['val', 'you', T('You: validated'), T('not sent yet')],
     ['done', 'you-rtk', T('You: retake'), T('not sent yet')],
     ['done', null, T('Open note'), T('bubble at the bottom right'), 'n'],
+    ['done', null, T('Rendered since its last session'), T('dot at the bottom left; faint: its render is older'), '', 1],
+    ['done', null, T('Render to check'), T('the dot green: not seen by the team yet'), '', 'chk'],
     ['na', null, T('Not required'), T('dash')]
   ];
   const dl = $('#dlg');
   dl.hidden = false;
   dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="hl-t"><h3 id="hl-t">${TOUCH() ? T('Legend') : T('Legend and keys')}</h3>
     <p class="faint" style="margin:0">${T('The diamond says the state, the corner what comes on top. The words beside it always say it again.')}</p>
-    <ul class="legend-list">${L.map(([b, c, l, s, n]) => `<li>${glyph(b, c, 2, !!n)}<span>${l}<small>${s}</small></span></li>`).join('')}</ul>
+    <ul class="legend-list">${L.map(([b, c, l, s, n, r]) => `<li>${glyph(b, c, 2, !!n, r)}<span>${l}<small>${s}</small></span></li>`).join('')}</ul>
     <div class="legend-keys"><div class="sec-h">${T('Keys')}</div>
     <ul class="legend-list" style="gap:6px">${[
       ['↑ ↓', T('previous / next file')],
@@ -426,6 +463,17 @@ document.addEventListener('click', e => {
     renderTree();
     return;
   }
+  // A file's job, from the list's Renders column: the Farm tab, that job selected.
+  const gj = t.closest('[data-gojob]');
+  if (gj) {
+    S.ws = 'farm';
+    S.quick = null;
+    S.dept = null;
+    S.farmSel = gj.dataset.gojob;
+    renderAll();
+    document.querySelector(`.job[data-job="${CSS.escape(S.farmSel)}"]`)?.scrollIntoView({ block: 'nearest' });
+    return;
+  }
   const jb = t.closest('[data-job]');
   if (jb) {
     S.farmSel = jb.dataset.job;
@@ -433,6 +481,13 @@ document.addEventListener('click', e => {
     jb.classList.add('sel');
     renderProps();
     if (narrow()) document.body.classList.add('props-open');
+    return;
+  }
+  const wa = t.closest('[data-wact]');
+  if (wa) {
+    S.farmSel = 'w:' + wa.dataset.wid;
+    farmAction(wa.dataset.wact, wa);
+    renderAll();
     return;
   }
   const wk = t.closest('[data-wk]');
@@ -504,9 +559,19 @@ document.addEventListener('click', e => {
     msg(LBL[d] + ': ' + (a.join(', ') || T('nobody')));
     return;
   }
-  if (t.closest('[data-relink]')) {
+  const rl = t.closest('[data-relink]');
+  if (rl) {
     const it = cur();
-    if (it) relinkSend([it.file]);
+    if (!it) return;
+    // "by": every file linking an older version of it -- not it, whose links may be fine.
+    const files =
+      rl.dataset.relink === 'by'
+        ? it.linkedBy
+            .map(n => items.find(i => i.name === n))
+            .filter(o => o && o.links.some(x => x.name === it.name && x.newer))
+            .map(o => o.file)
+        : [it.file];
+    if (files.length) relinkSend(files);
     return;
   }
   const ga = t.closest('[data-gall]');
@@ -650,13 +715,6 @@ document.addEventListener('click', e => {
   if (otd) {
     S.ot.dept = otd.dataset.otd;
     closeMenus();
-    renderList();
-    return;
-  }
-  const sm = t.closest('[data-smode]');
-  if (sm) {
-    S.smode = sm.dataset.smode;
-    renderQuick();
     renderList();
     return;
   }
@@ -896,7 +954,23 @@ document.addEventListener('click', e => {
   }
   const fl = t.closest('[data-film]');
   if (fl) {
+    // A block's shot: that one in the player, its latest version.
+    if (fl.dataset.fshot != null) {
+      S.shot[fl.dataset.film] = fl.dataset.fshot;
+      S.ver[fl.dataset.film] = 0;
+      S.m.side = 'A';
+      if (S.sel === fl.dataset.film) {
+        renderProps();
+        renderWide();
+        return;
+      }
+    }
     select(fl.dataset.film, { open: false });
+    return;
+  }
+  const nx = t.closest('[data-newsx],[data-newsclr]');
+  if (nx) {
+    newsDel(nx.dataset.newsx != null ? +nx.dataset.newsx : null);
     return;
   }
   const gf = t.closest('[data-goto-file]');
@@ -932,12 +1006,37 @@ document.addEventListener('click', e => {
   }
   const go = t.closest('[data-goto]');
   if (go) {
+    // A block's note on another shot than the one shown: that shot's video first, then its frame.
+    const gs = go.dataset.gshot,
+      it = cur();
+    if (gs && it && gs !== shotOf(it) && it.versions.some(v => (v.shot || '') === gs)) {
+      const f = +go.dataset.goto;
+      S.shot[it.name] = gs;
+      S.ver[it.name] = 0;
+      if (S.form) S.form.shots = [gs];
+      if (S.tab !== 'plan' && !S.wide) S.tab = 'plan';
+      renderProps();
+      renderWide();
+      const at = () => {
+        setFrame(fIdx(f));
+        if (LIVE) liveFrame(cur(), f);
+      };
+      if (PV.parentNode && PV.readyState < 1) PV.addEventListener('loadedmetadata', at, { once: true });
+      else at();
+      return;
+    }
     setFrame(fIdx(+go.dataset.goto));
     if (LIVE) liveFrame(cur(), +go.dataset.goto);
     if (S.tab !== 'plan' && !S.wide) {
       S.tab = 'plan';
       renderProps();
     }
+    return;
+  }
+  const we = t.closest('[data-wend]');
+  if (we) {
+    S.seqPlay = we.dataset.wend === 'next';
+    renderWide();
     return;
   }
   const tp = t.closest('[data-tp]');
@@ -969,7 +1068,6 @@ document.addEventListener('click', e => {
   if (t.closest('[data-wclose]')) {
     wideFull(false);
     S.wide = false;
-    S.seqPlay = false;
     if (S.playing) togglePlay();
     renderWide();
     renderProps();
@@ -1081,6 +1179,19 @@ document.addEventListener('click', e => {
   const ne = t.closest('[data-nedit]');
   if (ne) {
     S.nedit = ne.dataset.nedit;
+    // A note (not a reply): its departments, frames, shot to change too -- as they'd be sent.
+    const it = cur(),
+      k = S.nedit,
+      n = k[0] === 'm' && !it.notes.some(x => x.id === k) ? it.myNotes.find(x => 'm' + x.at === k) : it.notes.find(x => x.id === k);
+    if (n) {
+      const o = it.edits[k] && typeof it.edits[k] === 'object' ? it.edits[k] : {},
+        sh = o.shot !== undefined ? o.shot : n.shot;
+      S.nf = {
+        deps: [...(o.deps || n.deps || [n.dept].filter(Boolean))],
+        frames: o.frames !== undefined ? o.frames : n.frames || '',
+        shot: noteShot(it, { shot: sh }) || ''
+      };
+    } else S.nf = null;
     refresh();
     const ta = document.getElementById('ne-txt');
     if (ta) {
@@ -1089,7 +1200,24 @@ document.addEventListener('click', e => {
     }
     return;
   }
+  const nde = t.closest('[data-nedep],[data-neshot],[data-nefr]');
+  if (nde && S.nf) {
+    const tx = $('#ne-txt').value,
+      fr = $('#ne-fr') ? $('#ne-fr').value : S.nf.frames;
+    S.nf.frames = fr;
+    if (nde.dataset.nedep != null) {
+      const d = nde.dataset.nedep,
+        l = S.nf.deps;
+      l.includes(d) ? l.splice(l.indexOf(d), 1) : l.push(d);
+      S.nf.deps = DEPTS[cur().kind].filter(x => l.includes(x));
+    } else if (nde.dataset.neshot != null) S.nf.shot = nde.dataset.neshot;
+    else S.nf.frames = nde.dataset.nefr === '' ? '' : rangeStr() || 'f' + fNo(S.frame);
+    refresh();
+    if ($('#ne-txt')) $('#ne-txt').value = tx;
+    return;
+  }
   if (t.closest('[data-necancel]')) {
+    S.nf = null;
     S.nedit = null;
     refresh();
     return;
@@ -1100,15 +1228,33 @@ document.addEventListener('click', e => {
     const k = ns.dataset.nesave,
       v = wordsOf($('#ne-txt'));
     if (!v) return;
-    const it = cur();
-    if (k[0] === 'm' && !it.notes.some(x => x.id === k)) A.editMine(it, k.slice(1), v);
+    const it = cur(),
+      nf = S.nf;
+    // Its frames as typed ("12", "f12-30"); not understood: left as they were.
+    let fr;
+    if (nf) {
+      const raw = ($('#ne-fr') ? $('#ne-fr').value : nf.frames).trim();
+      fr = raw ? framesStr(framesOf(raw)) || undefined : '';
+    }
+    const more = nf ? { deps: nf.deps, frames: fr, shot: digits(nf.shot) } : {};
+    S.nf = null;
+    if (k[0] === 'm' && !it.notes.some(x => x.id === k)) A.editMine(it, k.slice(1), v, more);
     else if (/^r.+:\d+$/.test(k) && !sentEntry(it, k)) {
       const [id, n] = k.slice(1).split(':');
       const r = (it.myReplies[id] || [])[+n];
       if (r) r.text = v;
     } else {
       const e = sentEntry(it, k);
-      A.edit(it, k, e && e.text === v ? undefined : v);
+      if (!nf) A.edit(it, k, e && e.text === v ? undefined : v);
+      else {
+        // Only what differs from the note as sent; nothing: the change taken back.
+        const o = { text: v },
+          same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+        if (!same(more.deps, e.deps || [])) o.deps = more.deps;
+        if (more.frames !== undefined && more.frames !== (e.frames || '')) o.frames = more.frames;
+        if (more.shot !== digits(e.shot || '')) o.shot = more.shot;
+        A.edit(it, k, Object.keys(o).length === 1 && e.text === v ? undefined : Object.keys(o).length === 1 ? v : o);
+      }
     }
     S.nedit = null;
     refresh();
@@ -1296,7 +1442,6 @@ document.addEventListener('keydown', e => {
     }
     if (S.wide) {
       S.wide = false;
-      S.seqPlay = false;
       if (S.playing) togglePlay();
       renderWide();
       renderProps();
@@ -1317,13 +1462,10 @@ document.addEventListener('keydown', e => {
     helpDlg();
     return;
   }
-  if (k === 'ArrowDown' && !S.wide) {
+  if ((k === 'ArrowDown' || k === 'ArrowUp') && !S.wide) {
     e.preventDefault();
-    step(1);
-  }
-  if (k === 'ArrowUp' && !S.wide) {
-    e.preventDefault();
-    step(-1);
+    (S.ws === 'farm' ? farmStep : step)(k === 'ArrowDown' ? 1 : -1);
+    return;
   }
   if (S.wide && k === 'ArrowRight' && !e.target.closest('[data-scrub]')) {
     step(1);
@@ -1460,7 +1602,7 @@ document.addEventListener('change', e => {
 });
 
 /* A row scrolled sideways (.join, .filters, .ws): a fade on the side where more is hidden; a mouse wheel scrolls it. */
-const SX = '.join,.filters,.ws';
+const SX = '.join,.filters,.ws,.cx';
 function sxFade(el) {
   const l = el.scrollLeft > 1,
     r = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;

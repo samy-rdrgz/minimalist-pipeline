@@ -46,7 +46,7 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 
 **Stages** (Edit project, in the departments field itself): `layout > animation > fx, lighting > render` -- `>` the next stage, a comma for departments in parallel. Commas only (`layout, animation, lighting, render`, as before): no stages, nothing changes. Nothing is ever blocked: it's information.
 
-- **Waiting**: an earlier stage has an open RTK, or isn't started -- *Waiting: layout RTK*, *Waiting: layout not started*. Shown with the department's state on the page (a clock in its diamond).
+- **Waiting**: an earlier stage has an open RTK, isn't started or isn't done yet (on the latest stable) -- *Waiting: layout RTK*, *Waiting: layout not started*, *Waiting: layout not done*. Shown with the department's state on the page (a clock in its diamond).
 - **To redo**: a department already started whose earlier stage changed after its last update -- an RTK on that stage closed, or a stable made with it reworked -- *To redo: layout changed on 12/11*. Its last update: a save in a session where it was ticked as worked, or **Still done**.
 - **Where**: a file's departments on the live page, the sidebar's *Working on* toggles. On the snapshot page, a clock (Waiting) or an orange arrow (To redo) in the diamond's place, the state a small diamond on its corner; the reason under the department's name in the file's panel.
 - **Still done** (a file's detail on the live page, or the ✓ beside a toggle in the sidebar, on a department to redo, open to everyone): the work done holds after the change -- recorded with who and when, and an optional why; not a validation.

@@ -5,6 +5,7 @@ import base64
 import os
 import re
 import threading
+from datetime import datetime
 from pathlib import Path
 
 from ..background import background_work
@@ -25,9 +26,11 @@ from .status import (
     department_score,
     department_state,
     file_progress,
+    furthest_department,
     omitted,
     progress_weights,
     project_stages,
+    render_freshness,
 )
 from ..preview import LD_DIR, browser_video, ensure_ld, main_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
@@ -101,8 +104,11 @@ def _render_presets(owner: Path) -> dict:
     """The Render form's start for this folder: {"department": its last
     render's, "by": {department: the preset its last render for it used},
     "used": every preset its renders used, for the page's search}
-    (render_history.json, finished and failed renders). Pure os/json."""
-    by, last, used = {}, "", set()
+    (render_history.json, finished and failed renders); and "at":
+    {department: when its latest finished render started} (its end less
+    its duration; its end without one), for status.py render_freshness().
+    Pure os/json."""
+    by, last, used, at = {}, "", set(), {}
     for e in (read_json_quiet(owner / ".pipeline" / "render_history.json") or {}).get("entries") or []:
         if not isinstance(e, dict) or e.get("status") == "split":
             continue
@@ -110,9 +116,14 @@ def _render_presets(owner: Path) -> dict:
         last = d
         if d:
             by[d] = e.get("prerender_script") or ""
+            end = iso_timestamp(e.get("completed_at"))
+            if e.get("status") == "finished" and end:
+                start = end - float(e.get("duration_seconds") or 0)
+                if start > (iso_timestamp(at.get(d)) or 0):
+                    at[d] = datetime.fromtimestamp(start).astimezone().isoformat(timespec="seconds")
         if e.get("prerender_script"):
             used.add(str(e["prerender_script"]))
-    return {"department": last, "by": by, "used": sorted(used)}
+    return {"department": last, "by": by, "used": sorted(used), "at": at}
 
 
 def _last_save(raw: dict) -> dict:
@@ -617,6 +628,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         stable_m = version_re.search(stable_name or "")
         stable_n = int(stable_m[1]) if stable_m else -1
         wip_n, wip_name = max(wips) if wips else (-1, None)
+        fresh_by = render_freshness(status, (raw.get("render_presets") or {}).get("at") or {})
         item = {
             "name": name,
             "kind": kind,
@@ -631,6 +643,20 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                 for d in status.get("departments_required", [])
             },
             "flags": status.get("flags") or {},
+            # The Render form's first department (the Render dialog's too).
+            "render_department": furthest_department(
+                status,
+                json_get(config, f"{kind}s_departments", []) or [],
+                project_stages(config, f"{kind}s"),
+            ),
+            # Each department's own render, after its latest session or not:
+            # the dot on its diamond (status.py render_freshness()).
+            # Keyed as the file's departments are (a render's is lower case).
+            "render_fresh": {
+                d: fresh_by[str(d).lower()]
+                for d in status.get("departments_required", [])
+                if str(d).lower() in fresh_by
+            },
             # Who each department is assigned to (Edit project's team).
             "assignees": status.get("assignees") or {},
             # Set aside: listed, out of every share done (lib/monitoring/status.py).
@@ -692,6 +718,12 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             render_to_check_label(info["shot"], {**info, "department": ""})
             for _, info in to_check_entries(status if isinstance(status.get("to_check"), dict) else {})
         ]
+        # The departments with a render to check: the dot on their diamond green.
+        checking = {
+            str(info.get("department") or "").lower()
+            for _, info in to_check_entries(status if isinstance(status.get("to_check"), dict) else {})
+        }
+        item["to_check_departments"] = [d for d in item["departments_required"] if str(d).lower() in checking]
         item["farm"] = (farm or {}).get(owner_key(owner), [])
         # What the prod must see: a render made from an older .blend than
         # the last stable -- the picture lags the validated work.

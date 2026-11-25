@@ -167,6 +167,9 @@ const legend = [
   ['val', 'you', 'You: validated'],
   ['done', 'you-rtk', 'You: retake'],
   ['done', null, 'Open note', 'n'],
+  ['done', null, 'Rendered since its last session', '', 1],
+  ['done', null, 'Its render older than its last session', '', 0],
+  ['done', null, 'Render to check', '', 'chk'],
   ['na', null, 'Not required']
 ];
 const job = F.jobs.find(j => j.state === 'running'),
@@ -275,9 +278,9 @@ const DESK = [
     c: '.g',
     m: '.legend-list li',
     d: () =>
-      `<ul class="legend-list">${legend.map(([b, c, l, n]) => `<li>${glyph(b, c, 2, !!n)}<span>${l}</span></li>`).join('')}</ul>`,
+      `<ul class="legend-list">${legend.map(([b, c, l, n, r]) => `<li>${glyph(b, c, 2, !!n, r)}<span>${l}</span></li>`).join('')}</ul>`,
     r: [
-      'Solid shape = the base state; corner = what comes on top; bubble = a note.',
+      'Solid shape = the base state; corner = what comes on top; bubble = a note; dot at the bottom left = its own render after its last session (faint: older).',
       'The words beside it always say it again (never the colour alone).'
     ]
   },
@@ -489,7 +492,7 @@ const DESK = [
     c: '.chkbar',
     m: '.chkbar .btn',
     d: () =>
-      `<div style="width:360px;display:flex;flex-direction:column;gap:var(--sp-5)">${checkHTML({ name: 'k1', toCheck: true, live: { checks: [{ key: '#lighting', department: 'lighting', folder: 'v012-stable_001' }] } })}${checkHTML({ name: 'k2', toCheck: true, live: { checks: [{ key: '#animation', department: 'animation', folder: 'v006_003' }, { key: '#lighting', department: 'lighting', folder: 'v006_004' }] } })}</div>`,
+      `<div style="width:360px;display:flex;flex-direction:column;gap:var(--sp-5)">${checkHTML({ name: 'k1', toCheck: true, versions: [], live: { checks: [{ key: '#lighting', department: 'lighting', folder: 'v012-stable_001' }] } })}${checkHTML({ name: 'k2', toCheck: true, versions: [], live: { checks: [{ key: '#animation', department: 'animation', folder: 'v006_003' }, { key: '#lighting', department: 'lighting', folder: 'v006_004' }] } })}</div>`,
     r: [
       'In the detail, under the player: what to watch, its Checked… at hand.',
       "One Checked… per render: an animation playblast and a lighting render aren't watched by the same people."

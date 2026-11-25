@@ -650,7 +650,8 @@ def create_tracking(filepath: Path, departments: list, description: str = ""):
             # The project's order (Edit project), not the alphabet's: what
             # every list of departments shows them in.
             merged_departments = ordered_departments(
-                dict.fromkeys([*existing.get("departments_required", []), *departments])
+                dict.fromkeys([*existing.get("departments_required", []), *departments]),
+                owner_kind(path.parent.parent),
             )
             existing_description = existing.get("description", "")
             if description and description not in existing_description:
@@ -684,7 +685,7 @@ def get_departments_required(filepath: Path) -> list:
         with locked_json(path, read_only=True) as box:
             data = box["data"] or {}
         required = data.get("departments_required")
-        return ordered_departments(required) if required is not None else None
+        return ordered_departments(required, owner_kind(path.parent.parent)) if required is not None else None
     except Exception as e:
         raise PipelineError(f"Error during reading tracking file : {e}")
 
@@ -715,6 +716,7 @@ def create_wipmeta(
     original_filepath: Path | None,
     creation_mode: str = "",
     linked: list[dict] | None = None,
+    note: str = "",
 ):
     """Create the .wipmeta for a new work version, inheriting linked libs
     from the previous one -- or taking `linked` as is when given (the
@@ -739,6 +741,10 @@ def create_wipmeta(
             SESSIONS: {},
             "linked": compact_linked(linked),
         }
+        # What changed in this version, said when it was made (Increment's field):
+        # absent when nothing was said.
+        if note.strip():
+            data["note"] = note.strip()
         path = _meta_path(filepath, ".wipmeta")
         path.parent.mkdir(parents=True, exist_ok=True)
         with locked_json(path) as box:
@@ -1022,6 +1028,7 @@ def create_stablemeta(
     conflict_warnings: str,
     linked: list[dict] | None = None,
     worked: list[str] | None = None,
+    note: str = "",
 ):
     """Create the .stablemeta of a -stable version: validated departments,
     the validations carried from the stable before (departments not worked
@@ -1083,6 +1090,8 @@ def create_stablemeta(
             "departments_worked": sorted(worked),
             "approvals_carried": True,
         }
+        if note.strip():
+            data["note"] = note.strip()  # what changed / was fixed (Increment's field)
         if approvals:
             data["approvals"] = approvals
         if approvals_previous:
@@ -1193,7 +1202,7 @@ def set_departments_required(filepath: Path, add=(), remove=()) -> bool:
         data = box["data"] or {}
         before = list(data.get("departments_required", []))
         kept = [d for d in before if d not in remove]
-        after = ordered_departments(dict.fromkeys([*kept, *(d.lower() for d in add)]))
+        after = ordered_departments(dict.fromkeys([*kept, *(d.lower() for d in add)]), kind.split("_")[0])
         if after == before:
             return False  # action "": nothing written
         data["departments_required"] = after
@@ -1403,8 +1412,14 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
         "started": last_stable.get("departments_started") or [],
         # Its stages' kind (lib/monitoring/status.py project_stages()): a library's
         # are the assets'.
-        "kind": "shots" if Path(asset_dir).parts[-3:-2] == ("shots",) else "assets",
+        "kind": owner_kind(asset_dir),
     }
+
+
+def owner_kind(owner_dir: Path) -> str:
+    """An asset/shot folder's kind: "shots" for shots/<sq>/<sh>/, else
+    "assets" (a library's are the assets')."""
+    return "shots" if Path(owner_dir).parts[-3:-2] == ("shots",) else "assets"
 
 
 def _worked_departments(wipmetas: list, stable_date: datetime) -> dict[str, list[dict]]:
@@ -1490,7 +1505,7 @@ def _status_from_raw(raw: dict) -> dict:
     global_data = dict(raw["tracking"])
     # The project's order, whatever the file's (Edit project may reorder).
     global_data["departments_required"] = ordered_departments(
-        global_data.get("departments_required", [])
+        global_data.get("departments_required", []), raw.get("kind")
     )
     last_stable = raw["last_stable"]
     stable_date = parse_iso(last_stable.get("created_at")) or EARLIEST
@@ -1889,10 +1904,24 @@ def edit_entry(
         raise PipelineError(f"Error during editing file entries : {e}")
 
 
-def set_entry_text(filepath: Path, id: str, text: str, editor: str) -> bool:
-    """An entry's words changed (matched by id), editor stamped as
-    edited_by/edited_at -- everything else kept. False when they were
-    already those. Raises PipelineError when no such entry."""
+_KEEP = object()
+
+
+def set_entry_text(
+    filepath: Path,
+    id: str,
+    text: str,
+    editor: str,
+    *,
+    departments: list[str] | None = None,
+    frames=_KEEP,
+    shot: str | None = None,
+) -> bool:
+    """An entry's words changed (matched by id) -- and, given, its
+    departments, its frames ((start, end or None); None: no frame any more)
+    and its shot ("" none) -- editor stamped as edited_by/edited_at,
+    everything else kept. False when they were already those. Raises
+    PipelineError when no such entry."""
     text = text.strip()
     path = tracking_json_path(filepath, must_exist=True)
     with locked_json(path) as box:
@@ -1900,9 +1929,25 @@ def set_entry_text(filepath: Path, id: str, text: str, editor: str) -> bool:
         entry = next((e for e in data.get("entries") or [] if e.get("id") == id), None)
         if entry is None:
             raise PipelineError("No entry found with this ID.")
-        if entry.get("text") == text:
+        before = json.dumps(entry, sort_keys=True)
+        entry["text"] = text
+        if departments is not None:
+            _set_entry_departments(entry, departments)
+        if frames is not _KEEP:
+            for k in ("frame_start", "frame_end", "frame_reference"):
+                entry.pop(k, None)
+            if frames:
+                entry.update(frame_start=frames[0], frame_reference="abs")
+                if frames[1] is not None:
+                    entry["frame_end"] = frames[1]
+        if shot is not None:
+            if shot:
+                entry["shot"] = shot
+            else:
+                entry.pop("shot", None)
+        if json.dumps(entry, sort_keys=True) == before:
             return False
-        entry.update(text=text, edited_by=editor, edited_at=now())
+        entry.update(edited_by=editor, edited_at=now())
         box["data"] = data
         box["action"] = "to_write"
     return True

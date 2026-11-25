@@ -61,6 +61,7 @@ JS_PARTS = (
     "desktop/28-dialogs.js",
     "desktop/29-events.js",
     "desktop/30-panes.js",
+    "desktop/31-fades.js",
     "mobile/50-mobile.js",
     "live/60-live.js",
     "live/61-share.js",
@@ -241,6 +242,8 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "render_ref": _render_ref(item.get("renders") or []),
         # The Render form's start: its last render's department, each department's last preset.
         "rp": item.get("render_presets") or {},
+        # ...the furthest department worked or done first (status.py furthest_department()).
+        **({"rdept": item["render_department"]} if item.get("render_department") else {}),
         "versions": _versions(item),
         "stable_v": _short_version(item["name"], item["stable_version"] or ""),
         "stable_at": item.get("stable_at") or "",
@@ -251,6 +254,10 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "states": dict(item["departments"]),
         # Waiting / To redo with their reasons (lib/monitoring/status.py stage_flags()).
         "flags": item.get("flags") or {},
+        # Its own render after its latest session (1) or before (0), with when it started.
+        "rf": {d: [1 if r["fresh"] else 0, r["at"]] for d, r in (item.get("render_fresh") or {}).items()},
+        # Its departments with a render to check: their dot green.
+        "rc": list(item.get("to_check_departments") or []),
         "assignees": item.get("assignees") or {},
         "omit": item.get("omit"),
         "scores": dict(item["scores"]),
@@ -375,10 +382,14 @@ def _farm_status(job: dict) -> dict:
     which render (its folder once set up, v003_001, else its .blend's version) and shot."""
     return {
         "state": job["state"],
+        # Its id: a click on it opens it in the Farm tab.
+        "id": job.get("job_id") or "",
         "text": _FARM_TEXT.get(job["state"], job["text"]),
         "tip": job["text"],
         "version": job.get("version") or "",
         "shot": job.get("shot") or "",
+        # The diamond the list marks (its preset's department).
+        "department": job.get("department") or "",
     }
 
 

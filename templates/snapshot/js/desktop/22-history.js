@@ -28,6 +28,35 @@ const vShort = (it, f) => {
 };
 const dShort = iso =>
   iso ? new Date(iso).toLocaleDateString(DTL(), { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+/* A stable's validations, in two lines: given to it ("Validated"), and kept from an earlier
+   stable, their department not worked since ("Still validated", greyed, from which). */
+function valLines(it, v, dep) {
+  const fresh = [],
+    kept = {};
+  Object.entries(v.approvals || {}).forEach(([d, rs]) =>
+    rs.forEach(r => {
+      const from = ((v.carried || {})[d] || {})[r];
+      if (from) (kept[from] = kept[from] || []).push([d, r]);
+      else fresh.push([d, r]);
+    })
+  );
+  const list = xs => {
+    const by = {};
+    xs.forEach(([d, r]) => (by[d] = by[d] || []).push(r));
+    return Object.entries(by)
+      .map(([d, rs]) => dep(d) + ' (' + rs.map(esc).join(', ') + ')')
+      .join(', ');
+  };
+  return (
+    (fresh.length ? `<div class="vm"><i class="vk val"></i>${T('Validated: {list}', { list: list(fresh) })}</div>` : '') +
+    Object.entries(kept)
+      .map(
+        ([from, xs]) =>
+          `<div class="vm kept" title="${T('Not worked on since that stable: its validation stays')}"><i class="vk val"></i>${T('Still validated: {list}', { list: list(xs) })} <span class="faint" style="white-space:nowrap">· ${T('since {v}', { v: esc(vShort(it, from)) })}</span></div>`
+      )
+      .join('')
+  );
+}
 function versionsHTML(it) {
   const h = histOf(it);
   if (h === 'wait') return `<p class="faint">${T('Reading…')}</p>`;
@@ -44,19 +73,12 @@ function versionsHTML(it) {
       const dep = d => esc(LBL[d] || d);
       return `<div class="vn ${v.stable ? 'st' : ''} ${v.conflict ? 'cf' : ''}" data-vi="${i}" ${parent != null ? `data-vp="${parent}"` : ''} ${branch ? 'data-branch' : ''}>
         <span class="vd" aria-hidden="true"></span>
-        <div class="vb"><div class="vh"><b class="mono">${esc(vShort(it, v.file))}</b>${branch ? `<span class="tag warn" title="${T('Made from {v}, not from the version before it', { v: esc(vShort(it, v.from)) })}">${T('from {v}', { v: esc(vShort(it, v.from)) })}</span>` : ''}</div>
-          <div class="vm faint">${[dShort(v.at), v.saved_by && v.saved_at && v.saved_at !== v.at ? T('saved last by {who}, {date}', { who: esc(v.saved_by), date: dShort(v.saved_at) }) : ''].filter(Boolean).join(' · ')}</div>
+        <div class="vb"><div class="vh"><b class="mono">${esc(vShort(it, v.file))}</b>${branch ? `<span class="tag warn" title="${T('Made from {v}, not from the version before it', { v: esc(vShort(it, v.from)) })}">${T('from {v}', { v: esc(vShort(it, v.from)) })}</span>` : ''}<span class="vat faint">${dShort(v.at)}</span></div>
+          ${v.note ? `<div class="vm vnote">${esc(v.note)}</div>` : ''}
+          ${v.saved_by && v.saved_at && v.saved_at !== v.at ? `<div class="vm faint">${T('saved last by {who}, {date}', { who: esc(v.saved_by), date: dShort(v.saved_at) })}</div>` : ''}
           ${worked.length ? `<div class="vm"><i class="vk wip"></i>${T('Worked: {deps}', { deps: worked.map(dep).join(', ') })}${people.length ? ` <span class="faint">· ${people.map(esc).join(', ')}</span>` : ''}</div>` : ''}
           ${v.stable && v.done.length ? `<div class="vm"><i class="vk done"></i>${T('Done: {deps}', { deps: v.done.map(dep).join(', ') })}</div>` : ''}
-          ${
-            v.stable && Object.keys(v.approvals || {}).length
-              ? `<div class="vm"><i class="vk val"></i>${T('Validated: {list}', {
-                  list: Object.entries(v.approvals)
-                    .map(([d, rs]) => dep(d) + ' (' + rs.map(esc).join(', ') + ')')
-                    .join(', ')
-                })}</div>`
-              : ''
-          }
+          ${v.stable ? valLines(it, v, dep) : ''}
           ${v.conflict ? `<div class="vm bad">${ic('b-error')}${T('Conflict: {why}', { why: esc(typeof v.conflict === 'string' ? v.conflict : T('two stables made from the same version')) })}</div>` : ''}
         </div></div>`;
     })

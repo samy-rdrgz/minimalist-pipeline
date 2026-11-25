@@ -77,6 +77,12 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
         options={"ENUM_FLAG"},
         name="Departments done:",
     )
+    note: bpy.props.StringProperty(
+        name="What changed",
+        description="Optional: what this version changes or fixes, in a line -- shown in the file's versions (live page)",
+        default="",
+        options={"SKIP_SAVE"},
+    )
 
     def invoke(self, context, event):
         filepath = Path(bpy.data.filepath)
@@ -112,6 +118,13 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
         row = layout.split(factor=TITLE_WIDTH, align=True)
         row.label(text="Tag", icon="BOOKMARKS")
         row.prop(self, "tag", text="")
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="What changed", icon="TEXT")
+        try:  # a placeholder: not on every Blender this add-on runs on
+            row.prop(self, "note", text="", placeholder="Optional: fixed the arm, cam rescaled...")
+        except TypeError:
+            row.prop(self, "note", text="")
 
         layout.separator(type="LINE", factor=3)
 
@@ -157,6 +170,10 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
 
             if result:
                 self.report({"INFO"}, f"Saved: {Path(result).name}")
+                if self.note.strip():
+                    from ..lib import log
+
+                    log("INFO", "version", f"{Path(result).name}: {self.note.strip()}")
                 if "-stable.blend" not in current.name:
                     wipmeta_add_work(current, list(self.worked_departments))
                 if tag != "stable":
@@ -164,6 +181,7 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
                         filepath=Path(result),
                         original_filepath=current,
                         creation_mode="manual_incrementation",
+                        note=self.note,
                     )
                 else:
                     create_stablemeta(
@@ -174,6 +192,7 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
                         linked=scan_linked_libraries(),
                         # From a stable, the only record of what was worked.
                         worked=list(self.worked_departments),
+                        note=self.note,
                     )
                 return {"FINISHED"}
             return {"CANCELLED"}

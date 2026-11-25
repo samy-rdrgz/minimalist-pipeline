@@ -531,6 +531,28 @@ _ANIMALS = [
 ]
 
 
+def is_placeholder_name(name: str) -> bool:
+    """name is still random_display_name()'s ("amber-otter"): never typed."""
+    adjective, _, animal = str(name or "").partition("-")
+    return adjective in _ADJECTIVES and animal in _ANIMALS
+
+
+# Folders a sync client keeps (their names on disk): a lock written there
+# reaches the other machines late, two saves can cross.
+_CLOUD_FOLDERS = {"dropbox": "Dropbox", "google drive": "Google Drive", "googledrive": "Google Drive",
+                  "my drive": "Google Drive", "onedrive": "OneDrive", "icloud drive": "iCloud", "icloud": "iCloud"}
+
+
+def cloud_synced(path) -> str:
+    """The sync service path lies in ("Dropbox", "OneDrive"...), "" for none."""
+    for part in Path(str(path or "")).parts:
+        name = part.lower()
+        for key, service in _CLOUD_FOLDERS.items():
+            if name == key or name.startswith(key + " ") or name.startswith(key + "-"):
+                return service
+    return ""
+
+
 def random_display_name() -> str:
     """Locally-generated placeholder for prefs.user_name -- picked so several
     unconfigured teammates don't all show up under the same generic string

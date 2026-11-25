@@ -24,10 +24,13 @@ writes (main thread: locked_json()). What each step completes:
   (from its images' numbers).
 - all four: every date and time with its offset (1.2), the local time of
   the machine migrating.
-- config/presets: a .json render preset (a flat map of scene paths, read
-  no more) rewritten as the .py doing the same; a department with no
-  render preset given its <department>_default.py (1.2: renders by
-  department, see NOTES.md, "Renders by department")."""
+- config/presets: the files loose in it moved into their folder (2.0): a
+  render preset into render_shots/ or render_assets/ (its department's
+  kind), asset_file_preset.py into creation/; a .json render preset (a
+  flat map of scene paths, read no more) rewritten as the .py doing the
+  same; a department with no render preset of its kind given its
+  <department>_default.py (1.2: renders by department, see NOTES.md,
+  "Renders by department")."""
 
 import json
 import os
@@ -90,10 +93,12 @@ def plan_migration(root: Path, v_prefix: str = "v") -> dict:
             counts[change] = counts.get(change, 0) + 1
     presets = _plan_presets(root)
     loose = presets.pop("loose")
+    if presets["move"]:
+        counts["presets: into their folders"] = len(presets["move"])
     if presets["json"]:
         counts["render presets: .json to .py"] = len(presets["json"])
-    if presets["departments"]:
-        counts["render presets: one per department"] = len(presets["departments"])
+    if presets["shot_departments"] or presets["asset_departments"]:
+        counts["render presets: one per department"] = len(presets["shot_departments"]) + len(presets["asset_departments"])
     from .monitoring import progress_log
 
     missing = _progress_days_missing(root, history)
@@ -178,27 +183,61 @@ def apply_migration(root: Path, plan: dict) -> dict:
 
 
 def _plan_presets(root: Path) -> dict:
-    """{"json": the .json render presets to rewrite as .py, "departments":
-    the project's departments with no preset at all} -- read only."""
+    """What config/presets/ needs -- read only:
+    "move": [[from, to]], the files still loose in presets/ (before 2.0)
+    into their folder: a render preset into render_shots/ or render_assets/
+    (lib/presets.py preset_kind()), asset_file_preset.py into creation/ --
+    one whose name is already there left where it is;
+    "json": [[from, to]], the .json render presets rewritten as the .py
+    in their folder; "shot_departments" / "asset_departments": the
+    departments with no preset of their kind; "loose": the presets whose
+    name gives no department."""
     from .monitoring.status import preset_department
+    from .presets import ASSET_PRESET, CREATION_DIR, RENDER_DIRS, SHOT_PRESET, preset_kind, render_presets
 
     folder = root / "config" / "presets"
     try:
-        names = [p for p in folder.iterdir() if p.is_file()]
+        names = sorted(p for p in folder.iterdir() if p.is_file())
     except OSError:
         names = []
-    jsons = [str(p) for p in names if p.suffix == ".json"]
-    stems = [p.stem for p in names if p.suffix in (".py", ".json") and p.name != "asset_file_preset.py"]
     config = read_json_quiet(root / "config" / "project_config.json") or {}
-    departments = dict.fromkeys(
-        str(d).strip().lower()
-        for d in [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
-        if str(d).strip()
-    )
-    missing = [d for d in departments if not any(preset_department(n, [d]) == d for n in stems)]
+
+    def listed(key):
+        return list(dict.fromkeys(str(d).strip().lower() for d in config.get(key) or [] if str(d).strip()))
+
+    shots, assets = listed("shots_departments"), listed("assets_departments")
+    assigned = ((config.get("farm") or {}).get("department_presets")) or {}
+    assigned = {str(d).lower(): p for d, p in assigned.items()}
+
+    # Each render preset's kind once migrated: its folder's, else the one it goes in.
+    kinds: dict[str, str] = {}
+    for kind, sub in RENDER_DIRS.items():
+        for name in render_presets(root, kind):
+            if (folder / sub / f"{name}.py").is_file():
+                kinds.setdefault(name, kind)
+    move, jsons = [], []
+    for p in names:
+        if p.name in (ASSET_PRESET, SHOT_PRESET):
+            dest = folder / CREATION_DIR / p.name
+        elif p.suffix in (".py", ".json"):
+            kind = kinds.setdefault(p.stem, preset_kind(p.stem, shots, assets, assigned))
+            dest = folder / RENDER_DIRS[kind] / f"{p.stem}.py"
+            if p.suffix == ".json":
+                jsons.append([str(p), str(dest)])
+                continue
+        else:
+            continue
+        if not dest.exists():
+            move.append([str(p), str(dest)])
+
+    def missing(departments, kind):
+        have = [n for n, k in kinds.items() if k == kind]
+        return [d for d in departments if not any(preset_department(n, [d]) == d for n in have)]
+
     # Said, not changed: Edit project's Rename preset gives them one.
-    loose = sorted(n for n in set(stems) if not preset_department(n, list(departments)))
-    return {"json": jsons, "departments": missing, "loose": loose}
+    loose = sorted(n for n in kinds if not preset_department(n, [*shots, *assets]))
+    return {"move": move, "json": jsons, "shot_departments": missing(shots, "shot"),
+            "asset_departments": missing(assets, "asset"), "loose": loose}
 
 
 def _preset_py(overrides: dict, name: str) -> str:
@@ -220,31 +259,47 @@ def _preset_py(overrides: dict, name: str) -> str:
 
 
 def _apply_presets(root: Path, presets: dict, backup: Path, errors: list) -> int:
-    """_plan_presets()'s changes: each .json backed up, rewritten as .py (a
-    .py of its name already there won before: the .json only removed),
-    then removed; the departments' default presets. Returns files written."""
-    from .presets import install_department_presets
+    """_plan_presets()'s changes: the loose files moved into their folder
+    (each backed up first); each .json backed up, rewritten as the .py in
+    its folder (a .py of its name already there won: the .json only
+    removed), then removed; the departments' default presets, in their
+    kind's folder. Returns files written."""
+    from .presets import install_department_presets, render_preset_path
+
+    def backed_up(path: Path) -> None:
+        target = backup / path.relative_to(root)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if not target.exists():
+            shutil.copy2(path, target)
 
     written = 0
-    for p in presets.get("json") or []:
-        path = Path(p)
+    for src, dest in presets.get("move") or []:
+        src, dest = Path(src), Path(dest)
         try:
-            target = backup / path.relative_to(root)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            if not target.exists():
-                shutil.copy2(path, target)
-            py = path.with_suffix(".py")
-            if not py.exists():
+            if dest.exists():
+                raise FileExistsError(f"{dest.relative_to(root)} already there: left where it is")
+            backed_up(src)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            src.rename(dest)
+            written += 1
+        except Exception as e:
+            errors.append((str(src), str(e)))
+    for src, dest in presets.get("json") or []:
+        path, py = Path(src), Path(dest)
+        try:
+            backed_up(path)
+            if render_preset_path(path.stem, root) is None:
                 overrides = read_json_quiet(path)
                 if not isinstance(overrides, dict):
                     raise ValueError("unreadable")
+                py.parent.mkdir(parents=True, exist_ok=True)
                 py.write_text(_preset_py(overrides, path.stem), encoding="utf-8")
                 written += 1
             path.unlink()
         except Exception as e:
-            errors.append((p, str(e)))
-    if presets.get("departments"):
-        written += len(install_department_presets(presets["departments"], root / "config" / "presets"))
+            errors.append((src, str(e)))
+    if presets.get("shot_departments") or presets.get("asset_departments"):
+        written += len(install_department_presets(presets.get("shot_departments"), presets.get("asset_departments"), root))
     return written
 
 

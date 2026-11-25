@@ -21,7 +21,7 @@ const mGl = it =>
     .filter(d => required(it).includes(d))
     .map(d => {
       const x = info(it, d);
-      return glyph(x.base, x.corner, x.cnt, x.note);
+      return glyph(x.base, x.corner, x.cnt, x.note, x.r);
     })
     .join('');
 
@@ -34,7 +34,7 @@ function mRender() {
     top = $('#m-body')?.scrollTop || 0;
   const n2 = items.filter(touched).length + S.planned.length,
     nn = NEWS.length - newsSeen;
-  R.innerHTML = `<header class="m-top"><span class="m-brand"><b>${esc(M.project)}</b><small>${LIVE ? 'live' : T('snapshot of {date}', { date: fmtD(M.snapshot) })}${S.review ? ' · ' + esc(S.review.name) + ' · ' + S.review.role : ''}</small></span><span class="sp"></span>
+  R.innerHTML = `<header class="m-top"><span class="m-brand"><b>${esc(M.project)}</b><small>${LIVE ? 'live' : T('snapshot of {date}', { date: fmtAbs(M.snapshot) })}${S.review ? ' · ' + esc(S.review.name) + ' · ' + S.review.role : ''}</small></span><span class="sp"></span>
       ${LIVE ? `<button class="m-ib" data-msheet="news" aria-label="${T("What's new")}">${ic('i-bell')}${nn ? `<span class="cnt">${nn}</span>` : ''}</button>` : ''}
       ${S.review && LIVE ? `<span class="rv-sync" data-state="${LV.say}">${SAY[LV.say]()}</span>` : ''}${S.review && !LIVE ? `<button class="btn primary" data-msheet="send">${ic('b-export')}${T('Send')}<span class="n">${n2}</span></button>` : ''}
       <button class="m-ib" data-msheet="search" aria-label="${T('Search everything')}">${ic('b-viewzoom')}</button>
@@ -113,10 +113,7 @@ function mReview() {
       );
     })
     .join('');
-  const rng =
-    S.rangeStart != null
-      ? `<span class="rng sel" id="rng-sel" style="left:${((Math.min(S.rangeStart, S.frame) - 1) / (NF - 1)) * 100}%;width:${(Math.abs(S.frame - S.rangeStart) / (NF - 1)) * 100}%"></span>`
-      : '';
+  const rng = rngSelHTML();
   const req = DEPTS[it.kind].filter(d => required(it).includes(d));
   const notes = [...it.myNotes.map(n => ({ ...n, mine: true })), ...it.notes.filter(n => !n.done && !n.approval)],
     closed = it.notes.filter(n => n.done && n.type !== 'note');
@@ -168,7 +165,7 @@ function mDept(it, d) {
     a = assignOf(it, d),
     rv = S.review,
     f = it.flags[d] || {};
-  return `<div class="m-dept ${m ? 'mine' : ''}"><div class="m-dh">${glyph(x.base, x.corner, x.cnt, x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}</span></span>
+  return `<div class="m-dept ${m ? 'mine' : ''}"><div class="m-dh">${glyph(x.base, x.corner, x.cnt, x.note, x.r)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}</span></span>
       ${rv ? `<button class="m-as ${a.length ? '' : 'none'} ${it.assign && d in it.assign ? 'chg' : ''}" data-msheet="as:${d}">${ic('b-user')}<span>${a.length ? esc(a.join(', ')) : T('Assign')}</span></button>` : a.length ? `<span class="m-as ro">${ic('b-user')}<span>${esc(a.join(', '))}</span></span>` : ''}</div>
     ${
       rv
@@ -215,14 +212,16 @@ function mFarm() {
         : g
       )
         .map(j => {
-          const p = j.total ? j.done / j.total : 0;
+          // An ffmpeg pass (frame check, compilation, preview): its own progress, after the frames'.
+          const bar = j.compile != null || j.total,
+            p = j.compile != null ? j.compile : j.total ? j.done / j.total : 0;
           return `<button class="m-job" data-msheet="job:${j.id}">${jst(j.state)}<span class="jt"><b>${esc(j.file)}</b><small>${esc([TS(j.text), j.user].filter(Boolean).join(' · '))}</small>
-          ${j.total ? `<span class="jbar"><i style="--p:${p * 100}%"></i></span>` : ''}</span><span class="pc">${j.total ? Math.round(p * 100) + ' %' : ''}</span></button>`;
+          ${bar ? `<span class="jbar"><i style="--p:${p * 100}%"></i></span>` : ''}</span><span class="pc">${bar ? Math.round(p * 100) + ' %' : ''}</span></button>`;
         })
         .join('')}
         ${s === 'finished' && g.length > 5 ? `<p class="m-hint">${T('and {n} more: the desktop version.', { n: g.length - 5 })}</p>` : ''}</section>`;
     }).join('')}
-    <section class="m-sec"><div class="m-sec-h">${T('Machines')}<span class="n">${W.length}</span></div>${W.map(w => `<div class="m-job ro">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span class="jt"><b>${esc(w.name)}</b><small>${w.status === 'silent' ? T('silent since {date}', { date: fmtD(w.since) }) : esc([w.status, w.file].filter(Boolean).join(' · '))}</small></span></div>`).join('')}</section>`;
+    <section class="m-sec"><div class="m-sec-h">${T('Machines')}<span class="n">${W.length}</span></div>${W.map(w => `<div class="m-job ro">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span class="jt"><b>${esc(w.name)}</b><small>${w.status === 'silent' ? T('silent since {date}', { date: fmtAbs(w.since) }) : esc([w.status, w.file].filter(Boolean).join(' · '))}</small></span></div>`).join('')}</section>`;
 }
 
 /* ----- Bottom sheets: one component for every choice ----- */
@@ -350,6 +349,7 @@ function mSheet() {
             `<button class="m-opt" data-mgo="${x.n}"><span class="dt" style="background:var(${IC[x.k]})"></span><span class="lbl"><span class="mono">${esc(x.n)}</span> · ${esc(x.h)}<small>${esc(x.x)} · ${x.at}</small></span></button>`
         ).join('')
       : '<p class="m-hint">' + T('Nothing new since the page opened.') + '</p>';
+    if (NEWS.length) foot = `<button class="btn m-wide" data-mnewsclr>${T('Clear all')}</button>`;
   }
   if (k === 'search') {
     t = T('Search everything');
@@ -374,9 +374,11 @@ function mSheet() {
         ['done', 'redo', T('To redo')],
         ['val', 'you', T('You: validated')],
         ['done', 'you-rtk', T('You: retake')],
-        ['done', null, T('Open note'), 'n']
+        ['done', null, T('Open note'), 'n'],
+        ['done', null, T('Rendered since its last session'), '', 1],
+        ['done', null, T('Render to check'), '', 'chk']
       ]
-        .map(([b, c, l, n]) => `<li>${glyph(b, c, 1, !!n)}<span>${l}</span></li>`)
+        .map(([b, c, l, n, r]) => `<li>${glyph(b, c, 1, !!n, r)}<span>${l}</span></li>`)
         .join('')}</ul>
       <p class="m-hint">${T('Links, breakdown, file settings and more filters: the desktop version.')}</p>
       <a class="brand-f" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener"><svg viewBox="${document.querySelector('.statusbar .brand-f svg').getAttribute('viewBox')}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span><span class="v">${esc(M.addon_version || '')}</span></a>`;
@@ -533,6 +535,12 @@ $('#mob').addEventListener('click', e => {
     copyText(c.text, T('Copied: {n} file|Copied: {n} files', { n: c.n }));
     return;
   }
+  if ((x = q('[data-mnewsclr]'))) {
+    NEWS.length = 0;
+    newsSeen = 0;
+    mRender();
+    return;
+  }
   if ((x = q('[data-mgo]'))) {
     if (S.m.tab !== 'review') S.m.tab = 'review';
     mGo(x.dataset.mgo);
@@ -627,7 +635,7 @@ $('#mob').addEventListener('click', e => {
       ta = $('#m-ta'),
       txt = wordsOf(ta, toast);
     if (!txt) return;
-    A.note(it, { type: S.m.ctype, dept: S.m.cdept, text: txt, frames: rangeStr() });
+    A.note(it, { type: S.m.ctype, dept: S.m.cdept, text: txt, frames: rangeStr(), shot: digits(writeShot(it)) });
     ta.value = '';
     S.rangeStart = null;
     mRender();

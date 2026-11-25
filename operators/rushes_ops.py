@@ -17,6 +17,7 @@ from ..lib import (
     push_sequence_rushes,
     run_in_background,
 )
+from ..lib.operators import popup
 
 
 def report_push(result: dict) -> str:
@@ -37,26 +38,26 @@ def report_push(result: dict) -> str:
     return summary
 
 
-def push_in_background(fn, *args) -> None:
+def push_in_background(fn, *args, task: str = "") -> None:
     """Run a push on a thread: its summary in the log, a popup if a copy
-    was refused (a rush open in the edit keeps its old video)."""
+    was refused (a rush open in the edit keeps its old video). task: its
+    label in the live page's footer (lib/monitoring/tasks.py), "" none."""
+    from ..lib.monitoring import tasks
+
+    tid = tasks.start("rushes", task) if task else 0
 
     def done(result):
         summary = report_push(result)
+        if tid:
+            tasks.end(tid, not result["failed"], summary)
         if not result["failed"]:
             return
         lines = [f"{name}: {reason}" for name, reason in result["failed"]]
-        try:
-            bpy.ops.m_pipeline.text_popup(
-                "INVOKE_DEFAULT",
-                title="Rushes not all pushed",
-                message="\n".join([summary, "", *lines[:12]]),
-                icon="ERROR",
-            )
-        except RuntimeError:
-            pass  # no window to show it in: the log has it
+        popup("Rushes not all pushed", "\n".join([summary, "", *lines[:12]]), "ERROR")
 
     def failed(error):
+        if tid:
+            tasks.end(tid, False, str(error))
         log("ERROR", "rushes", f"Push to editing failed: {error}")
 
     run_in_background(fn, args, done, failed, every=0.5)

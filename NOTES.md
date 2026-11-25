@@ -1469,6 +1469,17 @@ render (B gets dispatched to the freed worker in the same tick). Only
 covers a worker in the same instance as the monitor -- a worker in a
 second Blender on the same machine isn't visible from here.
 
+The host's own worker is held back from new renders while a job waits
+for its setup (`scan_queue()`): the setups first, so the other machines
+have set-up jobs to take. **Only with other machines** (`_other_farm_workers()`:
+alive, on this protocol, not kept for their own renders). The host alone
+holding back did every setup before any render -- the same total time,
+the first video last. Alone, it goes job by job: a set-up job rendered
+as soon as it's free, a setup only while it's idle (not rendering, no
+render sent it this tick), never a render beside a setup (both load the
+`.blend`) -- a higher priority waiting still makes it give way after its
+frame.
+
 Exception (`_setup_unblocks_idle()`): machines idle with nothing to take
 -- the running renders single-machine or with no chunk left free, no
 set-up job they may render -- while the host renders for hours. Then
@@ -2104,6 +2115,42 @@ hours before a workstation was given back. Two ways now:
 
 The flag is deleted when the render ends (`_clear_render_flags()`), and by
 `discard_saved_frames()` if a crash left it.
+
+Asked wherever a worker on a render is stopped by hand: Blender's *Stop
+this worker* (`farm_kill_self_worker.invoke()`, a popup), the live page's
+Farm tab (*Stop being a worker* / a machine's *Stop*: `askStop()`, a
+popup, sends `now`; `_stop_self()` for this machine,
+`request_worker_stop()` for another). The page used to send nothing:
+this machine went through the operator's `execute()` (stopped now),
+another got `now` missing (after its frame).
+
+## A render up to date
+
+The dot on a department's diamond (`glyph()`'s `rdot`, the page's `rf`):
+its own latest finished render (`render_history.json`, that department's,
+`_render_presets()`'s "at") started after its latest session saved
+(`last_worked_at`, since the latest stable; else the stable's creation
+when it was worked there). Started, not finished: a session saved while
+it renders isn't in it. A history entry has no submission time: its
+start is its end less its duration (its end without one). A later
+department's render doesn't count for an earlier one -- a lighting
+render would turn the whole row up to date. Full: up to date; 35 %:
+older; none: never rendered (`status.py render_freshness()`).
+Green (`--st-you`, "to check"'s colour): a render of that department
+to check (tracking.json's `to_check`, its key's department; the page's
+`rc`), whatever its age -- until the team marks it checked.
+
+## The live page's job detail
+
+The job rows (`_farm_data()`, every pass) carry what the monitor cache
+has: the time left, the pace, each machine's pace and frame
+(`_per_machine()`). What only the job file says -- a chunk's failure and
+why, a stuck frame, the steps' times -- comes from `job_detail()`, Blender's
+own job detail, through the farm action "detail" (guests too, read
+only): read when the job is picked, again every 10 s while it's on, once
+for one that's over (`jobMore()`, its `JD` cache). Not in every pass: a
+job file each, on a share, every few seconds, for a detail seen one at
+a time. Its values stay as Blender writes them (English).
 
 ## Which machine rendered which frame
 
@@ -3111,11 +3158,13 @@ reader thread, for the jobs at `render_start` only -- Job details lists
 the chunks in progress (machine, frame) from there, never from `draw()`,
 and the job file's `chunk_failures`, `fail_reason`, `left_machines`;
 Worker details its machine's chunk. The pre-render picker's "None" reads
-"No pre-render script" and needs no label; the dialog opens on the
-project's `farm.default_prerender_script` (Edit project) on every
-`invoke()` -- the enum's own memory kept the last pick, or fell back to
-the first item. Edit project lists the presets of the project it edits,
-which isn't always the active one.
+"No pre-render script" and needs no label; the dialog opens, on every
+`invoke()`, on the preset of its department (the one this file was last
+rendered with for it, else Presets by department's), none with no
+department -- the enum's own memory kept the last pick, or fell back to
+the first item. The one project-wide default pre-render script (2.0.0
+and before) is gone: a department each has its own; Edit project drops
+`farm.default_prerender_script` when it saves.
 
 A Retry clears `chunk_failures` and `fail_reason`; `failed_machines` too
 when every live worker allowed on the job is in it (else it would wait
@@ -3913,8 +3962,10 @@ one field, nothing to type twice or to contradict; commas only, one stage,
 no stages, so older projects read as before), and two states computed on every read, never stored
 (lib/monitoring/status.py `stage_flags()`, into the status as `flags`):
 
-- **Waiting**: an earlier stage with an open RTK, else one not started --
-  the nearest stage first. Shown in place of the state (its own in the
+- **Waiting**: an earlier stage with an open RTK, else one not started,
+  else one not done yet (in progress: done on the latest stable counts,
+  reworked since or not) -- the nearest stage first. Before, one in
+  progress let the next stage read To do. Shown in place of the state (its own in the
   tooltip); blocks nothing.
 - **To redo**: a started department, an earlier stage changed after its
   last update. Two changes, kept apart -- one rule mixing them hid the
@@ -5002,6 +5053,28 @@ Phase 5 of dev/plan-1.2.md.
   (`install_department_presets()`): never one it has already, so a
   department with `animation_hd.py` gets nothing, and a default deleted
   comes back only if the department is left with none.
+- **Presets in folders (2.0)**: `config/presets/render_shots/`,
+  `render_assets/` (the render presets of each kind of file), `creation/`
+  (`asset_file_preset.py`, `shot_file_preset.py`), `ffmpeg_presets/`
+  (`lib/presets.py`). A render preset stays known by its name alone --
+  jobs, render history, the config's defaults, the farm's paces cite the
+  name, never a path: `render_preset_path()` finds it in either folder,
+  or still loose in `presets/` (a project not migrated: read as before,
+  never refused). One name, one file: Rename preset refuses a name taken
+  in any folder, and moves the file into the folder of its new
+  department's kind. The folder is the kind: the Render dialog of a shot
+  lists `render_shots/` (and the loose ones), Presets by department a
+  department's kind. Where a loose preset goes (Migrate old data,
+  `preset_kind()`): its name's department's kind, shots first; else the
+  department it's set for (By department…); else shots. A file already
+  there under its name: the loose one left, said in the errors.
+- **The shot preset** (`creation/shot_file_preset.py`,
+  `shot_collections()`): `build_collections(sequence, shots)` lays out the
+  collections and returns the one the cameras go in; the cameras and
+  markers stay the addon's (the shots' split, `derive_shot_subranges()`,
+  reads them). Run again on a file (a shot added to a block): the
+  template reuses what's there. Missing (a project before 2.0), broken or
+  returning no collection: CAM / SET / ASSETS as before, a warning logged.
 - The snapshot matches its to check against the render lines by "shot
   folder" (`snapshot_page.py _render_lines()`): it labels them without
   their department.
@@ -5111,7 +5184,7 @@ box open and a thread unfolded.
 A render preset's name gives its renders' department (`preset_department()`),
 so a preset named before 1.2 (`hd_final`) leaves its renders with none.
 Renaming it by hand would break what cites the name: the config's
-`farm.default_prerender_script`, each `render_history.json` entry's
+`farm.department_presets`, each `render_history.json` entry's
 `prerender_script` (the pace of the next renders, `history_pace()`), the
 keys of `preset_pace.json`, and a job in the farm -- its file name is a
 hash of the preset's name (`farm/monitor.py _file_key()`).

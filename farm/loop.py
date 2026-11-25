@@ -3,7 +3,6 @@
 import functools
 import os
 import re
-import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +12,6 @@ import bpy
 from ..lib import (
     ConfigCache,
     StampCache,
-    background_work,
     cached_scandir,
     file_time,
     get_active_project_root,
@@ -25,6 +23,7 @@ from ..lib import (
     read_json_quiet,
     seconds_since,
 )
+from ..lib.background import Worker
 from .post_render import _EXTENSION_MAP
 
 _registered_status_tick_fn = None
@@ -201,45 +200,11 @@ def refresh_monitor_status() -> None:
     )
 
 
-class _BackgroundRead:
-    """One disk read at a time on a daemon thread; the caller polls take()
-    from a bpy.app.timers tick. The function run must be pure I/O -- no bpy
-    -- see _read_farm_raw()."""
-
-    def __init__(self):
-        self._thread = None
-        self._result = None
-        self.started_at = 0.0
-
-    def busy(self) -> bool:
-        return self._thread is not None and self._thread.is_alive()
-
-    def start(self, fn, *args) -> None:
-        def run():
-            try:
-                with background_work():
-                    self._result = ("ok", fn(*args))
-            except Exception as e:  # reported by take()
-                self._result = ("error", e)
-
-        self._result = None
-        self.started_at = time.monotonic()
-        self._thread = threading.Thread(
-            target=run, daemon=True, name="pipeline-farm-read"
-        )
-        self._thread.start()
-
-    def take(self):
-        """("ok", value) / ("error", exc) once the read finished, else None."""
-        if self.busy() or self._result is None:
-            return None
-        result, self._result = self._result, None
-        return result
-
-
-_refresh_reader = _BackgroundRead()
-_status_reader = _BackgroundRead()
-_oneshot_reader = _BackgroundRead()
+# One disk read at a time each, on a thread kept between reads (lib/background.py
+# Worker). The function run must be pure I/O -- no bpy -- see _read_farm_raw().
+_refresh_reader = Worker("pipeline-farm-read")
+_status_reader = Worker("pipeline-farm-status")
+_oneshot_reader = Worker("pipeline-farm-oneshot")
 
 
 def request_monitor_refresh() -> None:
@@ -916,7 +881,7 @@ _STATE_ORDER = {"running": 0, "waiting": 1, "failed": 2}
 def farm_activity() -> dict[str, list[dict]]:
     """Render jobs of the monitor cache that aren't finished -- queued, in
     progress or failed -- by owner folder (lib owner_key()): [{"shot",
-    "stage", "state", "text", "version"}], state entry_state()'s ("waiting"
+    "stage", "state", "text", "department", "version"}], state entry_state()'s ("waiting"
     for a pending request or a render nobody's on), version its render folder once set up ("v003_001"),
     else its .blend's ("v003"); sorted by shot. Memory only: draw()-safe."""
     from .monitor import get_monitor_cache
@@ -947,6 +912,8 @@ def farm_activity() -> dict[str, list[dict]]:
                 "stage": stage,
                 "state": state,
                 "text": text,
+                # Its preset's department: the diamond the list marks.
+                "department": str(job.get("department") or "").lower(),
                 "version": Path(output_dir).name
                 if output_dir
                 else Path(filepath).stem.rsplit("_", 1)[-1],
@@ -1060,6 +1027,9 @@ def _build_job_entry(
         "prerender_script": job.get("prerender_script", ""),
         "department": job.get("department", ""),
         "frame_range": job.get("resolved_frame_range"),
+        # Its images' format and the fps its video compiles at (farm/setup.py), once set up.
+        "output_extension": job.get("output_extension", ""),
+        "fps": job.get("fps"),
         # Render here (farm/local.py): its machine's id; drawn by its 3D view.
         "local": job.get("local", ""),
         "viewport": bool(job.get("viewport")),

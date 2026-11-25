@@ -22,6 +22,7 @@ from ..lib.migration import (
     plan_migration,
 )
 from ..lib.monitoring.tracking import ProjectScan, TrackingStatusCache
+from ..lib.operators import popup
 
 # The plan waiting for its confirm dialog (see NOTES.md, "Popup-chaining").
 _pending: dict = {}
@@ -75,19 +76,13 @@ _CHANGES = (
     ("render: source file", "renders: the .blend they came from"),
     ("render: shot", "renders: their shot"),
     ("render: frame range", "renders: their frame range"),
+    ("presets: into their folders", "presets: into render_shots/, render_assets/ and creation/"),
     ("render presets: .json to .py", "render presets: .json rewritten as .py"),
     ("render presets: one per department", "render presets: one for each department with none"),
     ("sessions with their date, named sessions", "versions: their sessions dated, named sessions"),
     ("progress: days rebuilt", "progress over time: the days before the log, rebuilt"),
     ("activity: rebuilt", "activity over time (files worked, hours): rebuilt"),
 )
-
-
-def _popup(title: str, message: str, icon: str = "INFO") -> None:
-    try:
-        bpy.ops.m_pipeline.text_popup("INVOKE_DEFAULT", title=title, message=message, icon=icon)
-    except RuntimeError:
-        pass  # no window to show it in: the log has it
 
 
 def _record(root, user: str, files: int) -> None:
@@ -126,7 +121,7 @@ class M_PIPELINE_OT_migrate_data(bpy.types.Operator):
 
         def failed(error):
             log("ERROR", "migration", f"Migrate old data failed: {error}")
-            _popup("Migrate old data failed", f"{error}\n\nSee the pipeline log.", "ERROR")
+            popup("Migrate old data failed", f"{error}\n\nSee the pipeline log.", "ERROR")
 
         v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
         run_in_background(plan_migration, (root, v_prefix), read, failed)
@@ -216,7 +211,7 @@ class M_PIPELINE_OT_migrate_data_confirm(bpy.types.Operator):
             message += f" Backups: {result['backup']}"
         if result["errors"]:
             lines = [f"{p}: {why}" for p, why in result["errors"][:12]]
-            _popup("Migrate old data", "\n".join([message, f"{len(result['errors'])} not migrated:", *lines]), "ERROR")
+            popup("Migrate old data", "\n".join([message, f"{len(result['errors'])} not migrated:", *lines]), "ERROR")
             log("WARNING", "migration", f"{message} {len(result['errors'])} not migrated, by {user}.")
             return {"FINISHED"}  # not noted as done: run it again
         message += self._renames(root)
@@ -224,7 +219,7 @@ class M_PIPELINE_OT_migrate_data_confirm(bpy.types.Operator):
         log("SUCCESS", "migration", f"{message} By {user}.")
         TrackingStatusCache._cache.clear()
         ProjectScan.start(root)
-        _popup("Migrate old data", message)
+        popup("Migrate old data", message)
         return {"FINISHED"}
 
 

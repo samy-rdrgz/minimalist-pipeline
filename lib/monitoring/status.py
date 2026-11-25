@@ -124,8 +124,9 @@ def stage_flags(facts: dict, stages: dict) -> dict[str, dict]:
     _status_from_raw() gives) and its kind's stages. Information only,
     nothing is blocked. See NOTES.md, "Waiting and To redo".
 
-    - Waiting: an earlier stage has an open RTK ("layout RTK") or isn't
-      started ("layout not started"), the nearest stage first.
+    - Waiting: an earlier stage has an open RTK ("layout RTK"), isn't
+      started ("layout not started") or isn't done yet ("layout not done"),
+      the nearest stage first.
     - To redo: a started department whose earlier stage changed after its
       last update -- an RTK on it closed, or the latest stable made with it
       worked while this one, already started, wasn't worked with it. Its
@@ -158,9 +159,14 @@ def stage_flags(facts: dict, stages: dict) -> dict[str, dict]:
         if blocking:
             out["waiting"] = f"{blocking} RTK"
         else:
+            # Done: on the latest stable (reworked since, still). Not done
+            # yet, the nearest such stage said: not started, else in progress.
             idle = next((u for u in upstream if department_state(facts, u) == "todo"), None)
+            busy = next((u for u in upstream if department_state(facts, u) == "wip"), None)
             if idle:
                 out["waiting"] = f"{idle} not started"
+            elif busy:
+                out["waiting"] = f"{busy} not done"
         if department_state(facts, d) != "todo":
             # Its own updates since the latest stable (a session, Still done).
             own = max(
@@ -190,6 +196,49 @@ def stage_flags(facts: dict, stages: dict) -> dict[str, dict]:
         if out:
             flags[d] = out
     return flags
+
+
+def furthest_department(facts: dict, departments, stages: dict) -> str:
+    """The department a file's next render is most likely for: of
+    departments (its kind's, in the project's order), those worked since
+    its latest stable, worked at it or done there (its facts, the status
+    _status_from_raw() gives), the furthest along -- the latest stage, then
+    the latest in that order. "" for none. The Render dialog's first one
+    (operators/farm_ops.py), the page's (snapshot.py)."""
+    touched = {
+        str(d).lower()
+        for part in ("worked_departments", "validated_departments", "stable_worked")
+        for d in (facts.get(part) or ())
+    }
+    order = list(departments or ())
+    deps = [d for d in order if str(d).lower() in touched]
+    if not deps:
+        return ""
+    return max(deps, key=lambda d: (stages.get(str(d).lower(), 0), order.index(d)))
+
+
+def render_freshness(facts: dict, rendered_at: dict) -> dict[str, dict]:
+    """{department: {"fresh": bool, "at": ISO}} for each department with a
+    finished render of its own (rendered_at: {department: when its latest
+    one started}, _render_presets()): fresh when it started after the
+    department's latest session saved -- since the latest stable, else the
+    stable itself when it was worked there (its creation). Nothing to
+    compare with: fresh. A later department's render doesn't count: the
+    page's dot on each department's diamond. See NOTES.md, "A render up to
+    date"."""
+    stable = facts.get("stable_info") or {}
+    stable_worked = {str(d).lower() for d in facts.get("stable_worked") or ()}
+    last_worked = {str(d).lower(): at for d, at in (facts.get("last_worked_at") or {}).items()}
+    out = {}
+    for d, at in (rendered_at or {}).items():
+        started = parse_iso(at)
+        if not started:
+            continue
+        edited = parse_iso(last_worked.get(d)) or (
+            parse_iso(stable.get("created_at")) if d in stable_worked else None
+        )
+        out[d] = {"fresh": not edited or started >= edited, "at": at}
+    return out
 
 
 def project_stages(config: dict, kind: str) -> dict[str, int]:

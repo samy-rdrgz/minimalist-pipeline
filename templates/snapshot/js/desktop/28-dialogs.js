@@ -1,15 +1,26 @@
 /* ---------- Dialogs and popovers ---------- */
+/* A menu under its button, as tall as its items while the window has the room: above the button when
+   there's more room there; scrolled only past the window's height. */
 function placeMenu(b, m) {
   m.classList.add('fx');
   m.style.left = '0px';
   m.style.top = '0px';
+  m.style.maxHeight = '';
   const r = b.getBoundingClientRect(),
     w = m.offsetWidth,
-    h = m.offsetHeight;
+    h = m.scrollHeight + (m.offsetHeight - m.clientHeight),
+    below = innerHeight - 8 - (r.bottom + 4),
+    above = r.top - 4 - 8;
   let x = m.classList.contains('right') ? r.right - w : r.left;
   x = Math.max(8, Math.min(x, innerWidth - w - 8));
-  let y = r.bottom + 4;
-  if (y + h > innerHeight - 8) y = Math.max(8, r.top - h - 4);
+  let y;
+  if (h <= below || below >= above) {
+    y = r.bottom + 4;
+    if (h > below) m.style.maxHeight = Math.max(120, below) + 'px';
+  } else {
+    if (h > above) m.style.maxHeight = above + 'px';
+    y = r.top - 4 - Math.min(h, above);
+  }
   m.style.left = x + 'px';
   m.style.top = y + 'px';
 }
@@ -49,8 +60,10 @@ function seqNext() {
     sib = items.filter(i => i.kind === it.kind && groupOf(i) === groupOf(it) && !omitted(i));
   const n = sib.findIndex(i => i.name === it.name);
   if (n < 0 || n >= sib.length - 1) {
-    S.seqPlay = false;
-    togglePlay();
+    // The last one: stopped there (the choice Next kept for the next time).
+    clearInterval(playT);
+    S.playing = false;
+    syncPlay();
     msg(T('End of the sequence {seq}', { seq: groupOf(it) }));
     renderWide();
     return;
@@ -128,6 +141,21 @@ function renderNewsBtn() {
   b.querySelector('.cnt').textContent = n;
   b.querySelector('.cnt').hidden = !n;
 }
+/* The pop's content: each line its own cross (deleted from the list), all at once at the top. */
+function newsHTML() {
+  const IC = { rtk: '--st-rtk', note: '--text-2', render: '--st-done', ok: '--st-val' };
+  return `<h4>${T("What's new")}${NEWS.length ? `<button class="btn sm flat" data-newsclr>${T('Clear all')}</button>` : ''}</h4>${NEWS.length ? NEWS.map((x, k) => `<div class="newsr"><button class="newsi" data-goto-file="${x.n}"><span class="dt" style="background:var(${IC[x.k]})"></span><span class="tx"><span class="h"><b>${esc(x.n)}</b><span class="faint">${x.at}</span></span>${esc(x.h)}<small>${esc(x.x)}</small></span></button><button class="btn sm flat icon newsx" data-newsx="${k}" aria-label="${T('Delete')}" title="${T('Delete')}">${ic('b-x')}</button></div>`).join('') : `<p class="hint">${T('Nothing new since the page opened: notes, retakes, validations and renders come here.')}</p>`}
+    <button class="swi" role="switch" id="notif-sys" aria-checked="${!!S.notifSys}"><span class="lbl">${T('Notify me in the system too')}</span><span class="tg"></span></button>`;
+}
+/* One line out of What's new (k: its place), or all of them (k null): the list redrawn where it is. */
+function newsDel(k) {
+  if (k == null) NEWS.length = 0;
+  else NEWS.splice(k, 1);
+  newsSeen = NEWS.length;
+  renderNewsBtn();
+  const p = document.querySelector('.pop.news');
+  if (p) p.innerHTML = newsHTML();
+}
 function newsPop(btn) {
   const old = document.querySelector('.pop.news');
   if (old) {
@@ -140,9 +168,7 @@ function newsPop(btn) {
   p.className = 'pop news';
   p.setAttribute('role', 'dialog');
   p.setAttribute('aria-label', T("What's new"));
-  const IC = { rtk: '--st-rtk', note: '--text-2', render: '--st-done', ok: '--st-val' };
-  p.innerHTML = `<h4>${T("What's new")}</h4>${NEWS.length ? NEWS.map(x => `<button class="newsi" data-goto-file="${x.n}"><span class="dt" style="background:var(${IC[x.k]})"></span><span class="tx"><span class="h"><b>${esc(x.n)}</b><span class="faint">${x.at}</span></span>${esc(x.h)}<small>${esc(x.x)}</small></span></button>`).join('') : `<p class="hint">${T('Nothing new since the page opened: notes, retakes, validations and renders come here.')}</p>`}
-    <button class="swi" role="switch" id="notif-sys" aria-checked="${!!S.notifSys}"><span class="lbl">${T('Notify me in the system too')}</span><span class="tg"></span></button>`;
+  p.innerHTML = newsHTML();
   btn.parentElement.appendChild(p);
   placePop(p, btn);
 }
@@ -247,33 +273,134 @@ function setTheme(t) {
   closeMenus();
   if (S.ws === 'links') requestAnimationFrame(drawGraph);
 }
-function planDlg(g, kind) {
-  const its = items.filter(i => i.kind === kind && groupOf(i) === g);
-  let next = '';
-  if (kind === 'shot') {
-    const nums = its
-      .flatMap(i => [i.name, ...(i.shots || []).map(s => g + '_' + s)])
-      .map(n => +(n.match(/sh(\d+)/) || [])[1] || 0)
-      .concat(S.planned.filter(p => p.g === g).map(p => +(p.name.match(/sh(\d+)/) || [])[1] || 0));
-    next = g + '_sh' + String(Math.max(0, ...nums) + 10).padStart(3, '0');
-  } else next = g + '_';
-  const dl = $('#dlg');
-  dl.hidden = false;
-  dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="pl-t"><h3 id="pl-t">${kind === 'shot' ? T('New shot in {seq}', { seq: g }) : T('New file {prefix}_…', { prefix: g })}</h3>
-    <p class="faint" style="margin:0">${T('Made in the project when your review is imported, with its folders.')}</p>
-    <div class="prop"><span class="k">${T('Name')}</span><span class="v"><label class="field" style="flex:1"><input id="pl-n" value="${next}" aria-label="${T('Name')}"></label></span></div>
-    <div class="prop"><span class="k">${T('Description')}</span><span class="v"><label class="field" style="flex:1"><input id="pl-d" placeholder="${T('What it shows')}" aria-label="${T('Description')}"></label></span></div>
-    <div class="prop"><span class="k">${T('Departments')}</span><span class="v"><span class="join">${DEPTS[kind].map(d => `<button class="btn sm" data-pld="${d}" aria-pressed="true">${LBL[d]}</button>`).join('')}</span></span></div>
-    <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-plok="${g}" data-plk="${kind}">${ic('b-add')}${T('Add to my review')}</button></div></div>`;
-  setTimeout(() => $('#pl-n').focus(), 0);
+/* A new shot or asset, as Blender's New shot / New asset: the sequence (or prefix) fixed by where it's
+   asked, the shot prefix the project's; a shot's numbers each with its start frame, the end, the name
+   that makes, what clashes. PL: the dialog's state while open. */
+let PL = null;
+const plSp = () => ((M.naming || {}).shot || {}).prefix || 'sh';
+const plSd = () => ((M.naming || {}).shot || {}).digits || 3;
+const plStart = () => +((M.naming || {}).frame_start ?? 1001);
+const plStep = 50; // lib DEFAULT_MULTISHOT_STEP
+/* An asset's name, as lib/config.py sanitize_name() makes it. */
+const plSan = v =>
+  String(v || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ /g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '');
+/* The shot numbers taken in the sequence: {number: [the file's name, mono]} (planned ones too). */
+function plOwners(g) {
+  const out = {},
+    sp = plSp();
+  const add = (name, nums) => nums.forEach(n => (out[n] = [name, nums.length === 1]));
+  items
+    .filter(i => i.kind === 'shot' && groupOf(i) === g && !omitted(i))
+    .forEach(i => {
+      const seg = (i.name.split('_')[1] || '').slice(sp.length);
+      add(i.name, seg.split('-').map(Number).filter(n => !isNaN(n)));
+    });
+  S.planned
+    .filter(p => p.kind === 'shot' && p.g === g)
+    .forEach(p => add(p.name, p.shots || (p.name.split('_')[1] || '').slice(sp.length).split('-').map(Number)));
+  return out;
 }
+const plName = () =>
+  PL.kind === 'shot'
+    ? `${PL.g}_${plSp()}${[...new Set(PL.shots.map(x => x.n))].sort((a, b) => a - b).map(n => String(n).padStart(plSd(), '0')).join('-')}`
+    : `${PL.g}_${plSan(PL.name) || '…'}`;
+/* What's wrong: [blocking, warnings] -- as operators/shot_ops.py (order, negatives, numbers taken). */
+function plCheck() {
+  const err = [],
+    warn = [];
+  if (PL.kind !== 'shot') {
+    if (!plSan(PL.name)) err.push(T('A name: lowercase letters, digits and hyphens'));
+    else if (items.some(i => i.name === plName()) || S.planned.some(p => p.name === plName())) err.push(T('{name} exists already', { name: plName() }));
+    return [err, warn];
+  }
+  const ns = PL.shots.map(x => x.n),
+    st = PL.shots.map(x => x.s);
+  if (ns.some(n => !Number.isInteger(n) || n < 0) || st.some(n => !Number.isInteger(n) || n < 0) || !Number.isInteger(PL.end) || PL.end < 0)
+    err.push(T("Shot numbers and frames: whole numbers, not negative"));
+  else if (ns.join() !== [...new Set(ns)].sort((a, b) => a - b).join() || st.join() !== [...new Set(st)].sort((a, b) => a - b).join() || PL.end < st[st.length - 1])
+    err.push(T('Inconsistent timeline: shot numbers or start frames not in order'));
+  const own = plOwners(PL.g),
+    mono = ns.length === 1;
+  ns.forEach(n => {
+    const o = own[n];
+    if (!o) return;
+    const lab = T('Shot {n} already used by {name}', { n: String(n).padStart(plSd(), '0'), name: o[0] });
+    (mono && o[1] ? err : warn).push(lab);
+  });
+  return [err, warn];
+}
+function planDlg(g, kind) {
+  if (kind === 'shot') {
+    const own = Object.keys(plOwners(g)).map(Number);
+    PL = { g, kind, shots: [{ n: Math.floor(Math.max(0, ...own) / 10) * 10 + 10, s: plStart() }], end: plStart() + 100, desc: '', deps: new Set(DEPTS[kind]), anyway: false };
+  } else PL = { g, kind, name: '', desc: '', deps: new Set(DEPTS[kind]) };
+  planDraw();
+  setTimeout(() => $(kind === 'shot' ? '#pl-d' : '#pl-n')?.focus(), 0);
+}
+/* What the dialog shows that follows its fields: the name made, the warnings, Add's state. */
+function planLive() {
+  const [err, warn] = plCheck(),
+    box = $('#pl-live');
+  if (!box) return;
+  box.innerHTML = `<div class="prop"><span class="k">${T('Name')}</span><span class="v"><span class="mono">${esc(plName())}</span></span></div>
+    ${PL.kind === 'shot' && PL.shots.length > 1 ? `<p class="hint">${T('A block: one continuous action across several cameras, worked by one person at a time. Not one action? Separate shots.')}</p>` : ''}
+    ${err.map(x => `<p class="tag fail pl-w">${ic('b-error')}${esc(x)}</p>`).join('')}${!err.length ? warn.map(x => `<p class="tag check pl-w">${ic('b-error')}${esc(x)}</p>`).join('') : ''}
+    ${!err.length && warn.length ? `<button class="swi" role="switch" data-planyway aria-checked="${!!PL.anyway}"><span class="lbl">${T('Create anyway')}</span><span class="tg"></span></button>` : ''}`;
+  const ok = $('[data-plok]');
+  if (ok) ok.disabled = !!err.length || (!!warn.length && !PL.anyway);
+}
+function planDraw() {
+  const dl = $('#dlg'),
+    sh = PL.kind === 'shot';
+  const rows = sh
+    ? `<div class="prop"><span class="k">${T('Shots')}</span><span class="v pl-sh"><span class="pl-h"><span>${T('Number')}</span><span>${T('Start frame')}</span><span></span></span>${PL.shots
+        .map(
+          (x, k) =>
+            `<span class="pl-r"><label class="field"><span class="faint mono">${esc(plSp())}</span><input type="number" min="0" step="10" data-pln="${k}" value="${x.n}" aria-label="${T('Shot number')}"></label><label class="field"><input type="number" min="0" data-pls="${k}" value="${x.s}" aria-label="${T('First frame')}"></label><button class="btn sm flat icon" data-plrm="${k}" ${PL.shots.length > 1 ? '' : 'disabled'} aria-label="${T('Remove')}" title="${T('Remove')}">${ic('b-x')}</button></span>`
+        )
+        .join('')}<span class="pl-r"><button class="btn sm tool" data-pladd title="${T('One more shot: a block')}">${ic('b-add')}${T('Shot')}</button><label class="field"><span class="faint">${T('end')}</span><input type="number" min="0" data-ple value="${PL.end}" aria-label="${T('Last frame')}"></label><span></span></span></span></div>`
+    : `<div class="prop"><span class="k">${T('Name')}</span><span class="v"><label class="field" style="flex:1"><span class="faint mono">${esc(PL.g)}_</span><input id="pl-n" value="${esc(PL.name)}" aria-label="${T('Name')}" autocomplete="off"></label></span></div>`;
+  dl.hidden = false;
+  dl.innerHTML = `<div class="dlg-in pl" role="dialog" aria-modal="true" aria-labelledby="pl-t"><h3 id="pl-t">${sh ? T('New shot in {seq}', { seq: esc(PL.g) }) : T('New file {prefix}_…', { prefix: esc(PL.g) })}</h3>
+    <p class="faint" style="margin:0">${T('Made in the project when your review is imported, with its folders.')}</p>
+    ${rows}
+    <div class="prop"><span class="k">${T('Description')}</span><span class="v"><label class="field" style="flex:1"><input id="pl-d" value="${esc(PL.desc)}" placeholder="${T('What it shows')}" aria-label="${T('Description')}"></label></span></div>
+    <div class="prop"><span class="k">${T('Departments')}</span><span class="v"><span class="join">${DEPTS[PL.kind].map(d => `<button class="btn sm" data-pld="${d}" aria-pressed="${PL.deps.has(d)}">${LBL[d]}</button>`).join('')}</span></span></div>
+    <div id="pl-live"></div>
+    <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-plok>${ic('b-add')}${T('Add to my review')}</button></div></div>`;
+  planLive();
+}
+/* Its fields typed in: the state, then what follows them (the inputs themselves left as typed). */
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (!PL || !t.closest || !t.closest('.dlg-in.pl')) return;
+  const v = t.value === '' ? NaN : +t.value;
+  if (t.dataset.pln != null) PL.shots[+t.dataset.pln].n = v;
+  else if (t.dataset.pls != null) PL.shots[+t.dataset.pls].s = v;
+  else if (t.dataset.ple != null) PL.end = v;
+  else if (t.id === 'pl-n') PL.name = t.value;
+  else if (t.id === 'pl-d') PL.desc = t.value;
+  planLive();
+});
 /* Render checked, as in Blender: what watching it says of the file's departments -- ticked, one not done
    marked done (on the stable), one done validated (a team member can't) -- and its video to the edit (live). */
-function chkRows(it) {
+function chkRows(it, rd) {
+  // A department's render shows its work and what came before it, not what comes after:
+  // an animation render says nothing of the render department's (DEPTS's order).
+  const dl = DEPTS[it.kind] || [],
+    at = rd ? dl.indexOf(rd) : -1;
   return required(it).map(d => {
     const st = stOf(it, d),
       done = isDone(st);
     if (it.ok[d] || it.mine[d] === 'val') return { d, act: '', on: true, s: T('Validated') };
+    if (at >= 0 && dl.indexOf(d) > at)
+      return { d, act: '', on: done, s: info(it, d).l + ' · ' + T('after {dept}: not in this render', { dept: LBL[rd] || rd }) };
     if (done) return { d, act: canVal(it, d) ? 'val' : '', on: true, s: canVal(it, d) ? T('Done · ticked: validated') : T('Done') };
     return { d, act: canMark(it, d) ? 'mark' : '', on: false, s: canMark(it, d) ? info(it, d).l + ' · ' + T('ticked: done') : info(it, d).l };
   });
@@ -281,19 +408,26 @@ function chkRows(it) {
 function checkedDlg(key) {
   const it = cur();
   if (!it) return;
+  // Its render(s): one, a department's (a block's shots), all; their department, when they share one.
+  const pick = k => {
+    const cs = ckPick(it, k),
+      deps = [...new Set(cs.map(x => x.department || ''))];
+    return { cs, dep: deps.length === 1 ? deps[0] : '' };
+  };
   if (!S.chk || S.chk.name !== it.name || (key != null && S.chk.key !== key)) {
-    const c = checksOf(it).find(x => x.key === key);
+    const { dep } = pick(key);
     // The render's own department ticked first; "render" without one.
-    const rd = c && c.department ? c.department : 'render';
-    S.chk = { name: it.name, key: key || '', push: false, on: new Set(chkRows(it).filter(r => r.act && r.d === rd).map(r => r.d)) };
+    const rd = dep || 'render';
+    S.chk = { name: it.name, key: key || '', push: false, on: new Set(chkRows(it, dep).filter(r => r.act && r.d === rd).map(r => r.d)) };
   }
   const o = S.chk,
-    rows = chkRows(it),
-    c = checksOf(it).find(x => x.key === o.key);
+    { cs, dep } = pick(o.key),
+    c = cs.length === 1 ? cs[0] : null,
+    rows = chkRows(it, dep);
   const dl = $('#dlg');
   dl.hidden = false;
   dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="ck-t"><h3 id="ck-t">${T('Render checked')} · ${esc(it.name)}</h3>
-    ${c ? `<p class="faint" style="margin:0">${esc(checkLabel(c))}</p>` : ''}
+    ${c ? `<p class="faint" style="margin:0">${esc(checkLabel(c))}</p>` : cs.length > 1 ? `<p class="faint" style="margin:0">${esc(cs.map(checkLabel).join(' · '))}</p>` : ''}
     <div class="sec-h">${T('Departments')}</div>
     ${rows.length ? `<div class="swis">${rows.map(r => `<button class="swi" role="switch" data-ckd="${r.d}" aria-checked="${r.act ? o.on.has(r.d) : r.on}" ${r.act ? '' : 'disabled'}><span class="lbl">${esc(LBL[r.d])}<small>${esc(r.s)}</small></span><span class="tg"></span></button>`).join('')}</div>` : `<span class="faint">${T('No department required.')}</span>`}
     <p class="hint">${S.review ? T("Not right? Leave it unticked and write a retake.") : T('Start a review to mark departments done or validate them.')}</p>
@@ -304,17 +438,20 @@ function checkedGo() {
   const it = cur(),
     o = S.chk;
   if (!it || !o) return;
-  const c0 = checksOf(it).find(x => x.key === o.key);
+  const picked = ckPick(it, o.key),
+    deps = [...new Set(picked.map(x => x.department || ''))],
+    c0 = picked.length === 1 ? picked[0] : null;
   let n = 0;
-  chkRows(it).forEach(r => {
+  chkRows(it, deps.length === 1 ? deps[0] : '').forEach(r => {
     if (!r.act || !o.on.has(r.d)) return;
     if (r.act === 'val') A.validate(it, r.d);
     else A.mark(it, r.d);
     n++;
   });
   // This render only: the file stays to check while another one is.
-  const keys = o.key ? [o.key] : checksOf(it).map(c => c.key);
-  (S.checkedKeys[it.name] = S.checkedKeys[it.name] || []).push(...keys);
+  const done = picked,
+    keys = done.map(c => c.key);
+  (S.checkedKeys[it.name] = S.checkedKeys[it.name] || []).push(...done.map(ckId));
   if (!checksOf(it).length) it.toCheck = false;
   if (LIVE) liveChecked(it, o.push, keys);
   S.chk = null;

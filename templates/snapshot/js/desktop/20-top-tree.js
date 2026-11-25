@@ -30,7 +30,7 @@ function renderTop() {
   $('#p-live').title = T('Connected to Blender · {user}', { user: M.live.user });
   requestAnimationFrame(fitTop);
   $('#p-date').textContent =
-    (LIVE ? 'live · ' + fmtD(M.snapshot) : T('snapshot of {date}', { date: fmtD(M.snapshot) })) +
+    (LIVE ? 'live · ' + fmtD(M.snapshot) : T('snapshot of {date}', { date: fmtAbs(M.snapshot) })) +
     ' · ' +
     M.exported_by;
   const n2 = items.filter(touched).length;
@@ -100,13 +100,7 @@ function renderTree() {
         )
         .join('') +
       `<li class="it" data-ffm style="padding-left:12px">${ic('b-user')}<span class="nm" style="font-family:var(--ui);font-size:var(--fs)">${T('Mine')}</span><span class="pc">${F.jobs.filter(j => !j.archived && j.user === M.live.user).length}</span></li>`;
-    $('#tree')
-      .querySelectorAll('.jst')
-      .forEach(e => {
-        e.style.width = '16px';
-        e.style.height = '16px';
-      });
-    return;
+    return; // its dots: 16 px (CSS, .tree .jst)
   }
   const kind = S.ws === 'synth' ? 'shot' : S.ws === 'todo' ? S.td.kind : S.ws;
   const vis = items.filter(

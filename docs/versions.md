@@ -25,6 +25,7 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files, holding o
   "file": "assets/ch/ch_bob/ch_bob_v004.blend",
   "created_from": "assets/ch/ch_bob/ch_bob_v003.blend",
   "creation_mode": "manual_incrementation",
+  "note": "fixed the arm",
   "created_at": "2026-03-25T16:00:00",
   "edited_at": "2026-03-25T18:42:00",
   "departments_worked": {"84213_a1b2c3d4e5f6": ["rigging"]},
@@ -33,6 +34,8 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files, holding o
   ]
 }
 ```
+
+`note` (2.0, optional): what the version changes or fixes, typed in Increment's *What changed* field (absent when nothing was said); shown in the file detail's Versions, on the live page. Never asked by the increment proposed on open: nothing has changed yet.
 
 `creation_mode` is `creation` (first version), `auto_increment` / `branch_from` (proposed on open), or `manual_incrementation`. `departments_worked` is indexed by session (`pid_machine_id`) so it aggregates correctly even if a file is worked on by several people the same day.
 
@@ -46,6 +49,7 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files, holding o
   "created_from": "assets/ch/ch_bob/ch_bob_v004.blend",
   "created_at": "2026-03-26T10:00:00",
   "departments_done": {"modeling": true, "rigging": true, "texturing": false},
+  "note": "rig v2, cam rescaled",
   "approvals": {"modeling": {"prod": {"by": "marie", "at": "2026-03-27T15:12:00"}}},
   "linked": [],
   "conflict_warning": ""

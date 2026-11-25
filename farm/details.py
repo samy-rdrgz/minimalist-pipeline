@@ -85,18 +85,6 @@ def machine_label(uuid: str, recorded: str = "") -> str:
     return worker.get("machine") or recorded or uuid[:8]
 
 
-def same_machine_run(record: dict, frame: int) -> tuple[int, int]:
-    """(first, last) of the frames around frame written by the same machine
-    in a row: its chunk, or several of them."""
-    letters, start = record["frames"], int(record.get("start", 0))
-    i = j = frame - start
-    while i > 0 and letters[i - 1] == letters[i]:
-        i -= 1
-    while j < len(letters) - 1 and letters[j + 1] == letters[j]:
-        j += 1
-    return start + i, start + j
-
-
 def since(iso: str) -> tuple[str, float | None]:
     """("21/10 13:41" or "13:41" today, seconds ago) of an ISO time, ("-",
     None) if there's none."""

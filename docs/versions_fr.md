@@ -25,6 +25,7 @@ Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend`, 
   "file": "assets/ch/ch_bob/ch_bob_v004.blend",
   "created_from": "assets/ch/ch_bob/ch_bob_v003.blend",
   "creation_mode": "manual_incrementation",
+  "note": "fixed the arm",
   "created_at": "2026-03-25T16:00:00",
   "edited_at": "2026-03-25T18:42:00",
   "departments_worked": {"84213_a1b2c3d4e5f6": ["rigging"]},
@@ -33,6 +34,8 @@ Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend`, 
   ]
 }
 ```
+
+`note` (2.0, facultatif) : ce que la version change ou corrige, tapé dans le champ *What changed* d'Increment (absent si rien n'est dit) ; affiché dans Versions du détail du fichier, sur la page live. Jamais demandé à l'incrémentation proposée à l'ouverture : rien n'a encore changé.
 
 `creation_mode` vaut `creation` (première version), `auto_increment` / `branch_from` (proposés à l'ouverture) ou `manual_incrementation`. `departments_worked` est indexé par session (`pid_machine_id`) pour agréger correctement même si un fichier est travaillé par plusieurs personnes le même jour.
 
@@ -46,6 +49,7 @@ Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend`, 
   "created_from": "assets/ch/ch_bob/ch_bob_v004.blend",
   "created_at": "2026-03-26T10:00:00",
   "departments_done": {"modeling": true, "rigging": true, "texturing": false},
+  "note": "rig v2, cam rescaled",
   "approvals": {"modeling": {"prod": {"by": "marie", "at": "2026-03-27T15:12:00"}}},
   "linked": [],
   "conflict_warning": ""

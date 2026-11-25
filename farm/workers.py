@@ -33,6 +33,7 @@ from ..lib import (
     seconds_since,
     to_absolute,
 )
+from ..lib.presets import render_preset_path
 from .awake import keep_awake
 from .chunks import read_claims
 from .loop import RoleFileWatch, register_farm_loop
@@ -1300,10 +1301,11 @@ def apply_custom_preset(
     if not preset_name:
         return
 
-    py_path = (ConfigCache.get_path("presets") / preset_name).with_suffix(".py")
-
     try:
-        if py_path.exists():
+        # Known by its name alone: render_shots/, render_assets/, or still
+        # loose in presets/ (a project not migrated since 2.0).
+        py_path = render_preset_path(preset_name)
+        if py_path is not None:
             spec = importlib.util.spec_from_file_location("pipeline_prerender", py_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)

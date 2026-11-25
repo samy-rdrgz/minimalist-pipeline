@@ -128,7 +128,7 @@
   padding: 0 var(--sp-2);
   border-radius: var(--r-pill);
   background: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
   font: 600 var(--fs-xs) / 16px var(--ui);
 }
 
@@ -943,7 +943,7 @@ b.ab {
 .mob .m-ct .btn[data-mct="rtk"][aria-pressed="true"] {
   background: var(--st-rtk);
   border-color: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
 }
 .mob [data-mloop][aria-pressed="true"] {
   background: var(--sel-soft);

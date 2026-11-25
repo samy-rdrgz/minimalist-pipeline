@@ -3,23 +3,28 @@ const BASE = {
   todo: ['--st-todo', ''],
   wip: ['--st-wip', 'dots'],
   done: ['--st-done', ''],
-  rework: ['--st-done', 'back'],
+  rework: ['--st-wip', 'back'], // done, worked on again since its stable: the in-progress colour, the arrow back
   val: ['--st-val', 'check'],
   sup: ['--st-sup', 'check'],
   old: ['--st-old', 'check']
 };
-function glyph(base, corner, cnt, note) {
+/* rdot: its own render after its latest session (1, a dot) or before (0, the dot faint), to check ('chk', the dot green); none: never rendered. */
+function glyph(base, corner, cnt, note, rdot) {
   if (base === 'na')
     return `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 12h8" style="stroke:var(--line-3)" stroke-width="2" stroke-linecap="round"/></svg>`;
   const [c, inner] = BASE[base];
-  let s = `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M10 4.5 17.5 12 10 19.5 2.5 12z" style="fill:var(${c})"/>`;
+  // The diamond cut out where its badges sit (a mask, page.html's gm-*): a real gap whatever the ground
+  // under it -- a stroke of the area's colour showed as a dark ring on a row selected or a grey box.
+  const cut = `gm-${corner ? 1 : 0}${rdot != null ? 1 : 0}${note ? 1 : 0}`;
+  let s = `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><g mask="url(#${cut})"><rect x="4.7" y="6.7" width="10.6" height="10.6" rx="1.6" transform="rotate(45 10 12)" style="fill:var(${c})"/>`;
   if (inner === 'dots')
     s += `<g style="fill:var(--on-st)"><circle cx="7" cy="12" r="1.15"/><circle cx="10" cy="12" r="1.15"/><circle cx="13" cy="12" r="1.15"/></g>`;
-  /* Reworked since its stable: the done diamond, an arrow back in it (to redo, an earlier stage changed: the orange corner). */
+  /* Reworked since its stable: the in-progress diamond, an arrow back in it, centred (to redo, an earlier stage changed: the orange corner). */
   if (inner === 'back')
-    s += `<path d="M12.6 10.4H8.4M9.9 8.7 8.2 10.4l1.7 1.7M8.4 10.4h3.4a1.9 1.9 0 0 1 0 3.8H9.6" fill="none" style="stroke:var(--on-st)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    s += `<path d="M12.6 10.4H8.4M9.9 8.7 8.2 10.4l1.7 1.7M8.4 10.4h3.4a1.9 1.9 0 0 1 0 3.8H9.6" transform="translate(-.8 .3)" fill="none" style="stroke:var(--on-st)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
   if (inner === 'check')
     s += `<path d="M7 12.2 9.1 14.3 13.2 10.2" fill="none" style="stroke:var(--on-st)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>`;
+  s += '</g>';
   if (corner) {
     const cc = {
       rtk: '--st-rtk',
@@ -28,11 +33,13 @@ function glyph(base, corner, cnt, note) {
       you: '--st-you',
       'you-rtk': '--st-you'
     }[corner];
-    s += `<circle cx="17" cy="5.5" r="5.2" style="fill:var(${cc});stroke:var(--area)" stroke-width="1.6"/>`;
+    s += `<circle cx="17" cy="5.5" r="4.4" style="fill:var(${cc})"/>`; // its gap: to r 6 (page.html's gm-*)
     if (corner === 'rtk')
-      s += `<text x="17" y="8.3" text-anchor="middle" font-size="8" font-weight="700" font-family="Inter,sans-serif" fill="#fff">${cnt > 9 ? '9+' : cnt || '!'}</text>`;
+      s += `<text x="17" y="8.3" text-anchor="middle" font-size="8" font-weight="700" font-family="Inter,sans-serif" style="fill:var(--on-state)">${cnt > 9 ? '9+' : cnt || '!'}</text>`;
     if (corner === 'wait')
-      s += `<path d="M14.6 2.8h4.8M14.6 8.2h4.8M15.2 2.8 17 5.5l-1.8 2.7M18.8 2.8 17 5.5l1.8 2.7" style="stroke:var(--on-st)" stroke-width="1.1" fill="none"/>`;
+      // A clock's two hands, the badge its face: "not yet" (an hourglass read badly this small; a pause
+      // sign would say "on hold", which is something else).
+      s += `<path d="M17 5.6V3.1M17 5.6h2" style="stroke:var(--on-st)" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`;
     if (corner === 'redo')
       s += `<path d="M19.1 4.4A2.4 2.4 0 1 0 19.4 6.4" style="stroke:var(--on-st)" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M19.6 2.7v2.2h-2.2" style="stroke:var(--on-st)" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
     if (corner === 'you')
@@ -40,8 +47,10 @@ function glyph(base, corner, cnt, note) {
     if (corner === 'you-rtk')
       s += `<path d="M15.2 3.7 18.8 7.3M18.8 3.7 15.2 7.3" style="stroke:var(--on-st)" stroke-width="1.4" stroke-linecap="round"/>`;
   }
+  if (rdot != null)
+    s += `<circle cx="3.6" cy="18.4" r="1.9" style="fill:var(${rdot === 'chk' ? '--st-you' : '--text'})"${rdot ? '' : ' opacity="0.35"'}/>`;
   if (note)
-    s += `<path d="M13.6 14.6h6.6a1.3 1.3 0 0 1 1.3 1.3v3.2a1.3 1.3 0 0 1-1.3 1.3h-3.6l-2.2 1.7v-1.7h-.8a1.3 1.3 0 0 1-1.3-1.3v-3.2a1.3 1.3 0 0 1 1.3-1.3z" style="fill:var(--text-2);stroke:var(--area)" stroke-width="1.3"/>`;
+    s += `<path d="M13.6 14.6h6.6a1.3 1.3 0 0 1 1.3 1.3v3.2a1.3 1.3 0 0 1-1.3 1.3h-3.6l-2.2 1.7v-1.7h-.8a1.3 1.3 0 0 1-1.3-1.3v-3.2a1.3 1.3 0 0 1 1.3-1.3z" transform="matrix(.859 0 0 .827 2.38 3.17)" style="fill:var(--text-2)"/>`; // drawn 0.65 in from its gap's edge
   return s + '</svg>';
 }
 /* A department's state, a review's "done on the stable" (marked) over it. */
@@ -112,11 +121,21 @@ function info(it, d) {
     it.notes.filter(n => n.type !== 'rtk' && !n.done && n.deps.includes(d)).length +
     it.myNotes.filter(n => n.type !== 'rtk' && n.dept === d).length;
   if (nn && !s) s = T('{n} note|{n} notes', { n: nn });
-  return { base, corner, cnt, l, s, tone, note: nn > 0 };
+  // Its own render, after its latest session or not (snapshot.py render_freshness()): the dot, its words in the tooltip.
+  // A render to check: the dot green, whatever its age.
+  const rf = (it.rf || {})[d],
+    chk = (it.rc || []).includes(d),
+    r = chk ? 'chk' : rf ? rf[0] : null,
+    rt = [chk ? T('render to check') : '', rf ? T(rf[0] ? 'render up to date ({date})' : 'render older than its last session ({date})', { date: fmtD(rf[1]) }) : '']
+      .filter(Boolean)
+      .join(' · ');
+  return { base, corner, cnt, l, s, tone, note: nn > 0, r, rt };
 }
+/* A department's tooltip: its state, what's on top, its render. */
+const cellTitle = (d, x) => `${LBL[d]}: ${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}${x.rt ? ' · ' + esc(x.rt) : ''}`;
 const cellHTML = (it, d) => {
   const x = info(it, d);
-  return `<span class="cell ${x.base === 'na' ? 'na' : ''}" title="${LBL[d]}: ${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}">${glyph(x.base, x.corner, x.cnt, x.note)}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${esc(x.l)}</span>${x.s ? `<span class="s ${x.tone}">${esc(x.s)}</span>` : ''}</span></span>`;
+  return `<span class="cell ${x.base === 'na' ? 'na' : ''}" title="${cellTitle(d, x)}">${glyph(x.base, x.corner, x.cnt, x.note, x.r)}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${esc(x.l)}</span>${x.s ? `<span class="s ${x.tone}">${esc(x.s)}</span>` : ''}</span></span>`;
 };
 const openRtk = it => rtkNotes(it).length + it.myNotes.filter(n => n.type === 'rtk').length;
 // A validation's own line is a record, not a note: never counted.

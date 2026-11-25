@@ -27,17 +27,14 @@ function renderQuick() {
   $('#quick').classList.toggle('folded', S.ws !== 'synth' && S.qFold !== false);
   $('#quick').innerHTML =
     S.ws === 'synth'
-      ? `<span class="dim">${T('What a cell says')}</span><span class="join">${[
-          ['done', T('Done')],
-          ['val', T('Validated')],
-          ['rtk', T('Retakes')]
+      ? `<span class="join">${[
+          ['prog', T('Progress')],
+          ['render', T('Renders')]
         ]
-          .map(
-            ([k, l]) => `<button class="btn" data-smode="${k}" aria-pressed="${S.smode === k}">${l}</button>`
-          )
-          .join(
-            ''
-          )}</span><span class="faint sx-hint" title="${T('Click a sequence: its files, in the list.')}">${T('Click a sequence: its files, in the list.')}</span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button><button class="btn tool" data-export title="${T('Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)')}">${ic('b-export')}${T('Export…')}</button>`
+          .map(([k, l]) => `<button class="btn" data-sview="${k}" aria-pressed="${S.sview === k}">${l}</button>`)
+          .join('')}</span><span class="slg">${sParts()
+          .map(([k, c, l]) => `<span><i style="background:${c}"></i>${T(l)}</span>`)
+          .join('')}<span><i class="todo"></i>${T(S.sview === 'render' ? 'Not rendered' : 'To do')}</span></span><span class="sp"></span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button><button class="btn tool" data-export title="${T('Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)')}">${ic('b-export')}${T('Export…')}</button>`
       : `<button class="btn qfold only-phone" data-qfold aria-expanded="${S.qFold === false}">${ic('b-filter')}${T('Filters')}${on ? ` <span class="n">${on}</span>` : ''}${ic(S.qFold === false ? 'b-downarrow_hlt' : 'b-rightarrow')}</button><span class="join">${q.map(([k, l, n, g]) => `<button class="btn" data-quick="${k}" aria-pressed="${S.quick === k}">${g.replace('class="g"', 'class="g" style="width:18px;height:18px"')}<span>${l}</span><span class="n">${n}</span></button>`).join('')}</span>
     <span class="anchor"><button class="btn ${nm ? '' : 'tool'}" data-menu="m-more" aria-haspopup="true" aria-expanded="false" ${nm ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${T('Filters')}${nm ? ` <span class="n">${nm}</span>` : ''}${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-more" hidden role="menu">
@@ -105,7 +102,7 @@ function renderList() {
         return `<div class="grp ${S.closed.has(g) ? 'closed' : ''}" data-g="${g}">
       <div class="grp-h"><button class="ttl" data-fold="${g}" aria-expanded="${!S.closed.has(g)}">${ic('b-downarrow_hlt', 'i tri open')}${ic('b-rightarrow', 'i tri shut')}<b>${g}</b><span class="cnt">${S.ws === 'shot' ? T('{n} shot|{n} shots', { n: its.length }) : T('{n} file|{n} files', { n: its.length })}</span></button>
         ${S.ws === 'shot' ? `<button class="btn sm play" data-seq="${g}" title="${T('The last videos of {seq}, one after the other', { seq: g })}">${ic('b-play')}${T('Play the sequence')}</button>` : ''}${S.review ? `<button class="btn sm tool" data-plan="${g}" data-k="${S.ws}" title="${S.ws === 'shot' ? T('A new shot in {seq}, made when the review is imported', { seq: g }) : T('A new file {prefix}_…, made when the review is imported', { prefix: g })}">${ic('b-add')}${S.ws === 'shot' ? T('shot') : T('asset')}</button>` : ''}
-        <span class="prog"><span class="bar bare" style="--p:${(ad || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(ad)}"><i></i><span>${pct(ad)}</span></span><span class="bar bare" style="--p:${(av || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(av)}"><i></i><span>${pct(av)}</span></span></span></div>
+        <span class="prog"><span class="bar" style="--p:${(ad || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(ad)}"><span class="bl">${T('Done')}</span><i></i><span>${pct(ad)}</span></span><span class="bar" style="--p:${(av || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(av)}"><span class="bl">${T('Validated')}</span><i></i><span>${pct(av)}</span></span></span></div>
       <div class="rows"><div class="cols"><span class="c-th"></span><span>${T('File')}</span>${dl.map(d => `<span class="cd" title="${LBL[d]}">${LBL[d]}</span>`).join('')}<span class="c-prog">${T('Progress')}</span>${farmCol() ? `<span class="c-fm">${T('Renders')}</span>` : ''}</div>
       ${its.map(rowHTML).join('')}${S.planned.map((p, n) => (p.g === g && p.kind === S.ws ? plannedRow(p, n) : '')).join('')}${
         hid.length && !filt
@@ -149,7 +146,7 @@ function rowHTML(it) {
   if (it.outdated && !farmCol()) tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
   if (it.farm && !farmCol())
     tags.push(
-      `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(TS(it.farm.tip)) })}">${ic(it.farm.state === 'waiting' ? 'b-sorttime' : 'b-file_movie')}farm ${esc(TS(it.farm.text))}</span>`
+      `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(TS(it.farm.tip)) })}">${ic(it.farm.state === 'waiting' ? 'b-time' : 'b-file_movie')}farm ${esc(TS(it.farm.text))}${it.farm.department ? ' · ' + esc(LBL[it.farm.department] || it.farm.department) : ''}</span>`
     );
   if (touched(it)) tags.push(`<span class="tag you">${T('you')}</span>`);
   return `<div class="row ${S.sel === it.name ? 'sel' : ''} ${om && om.state ? 'omit' : ''} ${touched(it) ? 'mine' : ''}" data-n="${it.name}" tabindex="-1">
@@ -169,7 +166,7 @@ function farmCell(it) {
     const m = String(f.text || '').match(/(\d+)\/(\d+)/),
       p = m ? +m[1] / +m[2] : null;
     out.push(
-      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" title="${esc(TS(f.tip || f.text))}">${ic(f.state === 'waiting' ? 'b-sorttime' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
+      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" ${f.id ? `role="button" tabindex="0" data-gojob="${esc(f.id)}"` : ''} title="${esc(TS(f.tip || f.text))}${f.id ? ' · ' + T('a click: this job, in Farm') : ''}">${ic(f.state === 'waiting' ? 'b-time' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}${f.department ? ' · ' + esc(LBL[f.department] || f.department) : ''}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
     );
   }
   if (it.toCheck)
@@ -180,37 +177,95 @@ function farmCell(it) {
 }
 /* A bar's figure sits on its colour from this share up. */
 const IN = 0.62;
-/* A sequence's figures, one department or all (d null): its files' required departments
-   done, validated, their open RTKs; null if none. The Breakdown's cells, its export too. */
+/* A department's share done, 0..1, as Blender counts it (lib/monitoring/status.py department_score()), from
+   its state as the page shows it: done 1 (the "rtk" weight with an open retake), in progress, reworked
+   their weights, not started 0. */
+function deptScore(i, x) {
+  const w = { wip: 33, rework: 67, rtk: 67, ...(M.weights || {}) },
+    st = i.states[x];
+  if (st === 'done') return rtkNotes(i, x).length ? w.rtk / 100 : 1;
+  return (w[st] || 0) / 100;
+}
+/* A sequence's figures, one department or all (d null): Done, its files' mean -- one department's
+   score, or the file's Done (the mean of its required departments, as the list shows it); Validated,
+   the share of their required departments validated; their open RTKs. Null if none. The Breakdown's
+   cells, its export too. */
 function synthCell(its, d) {
   const r = its.filter(i => !omitted(i) && (d ? required(i).includes(d) : true));
   if (!r.length) return null;
   let n = 0,
-    done = 0,
     val = 0,
-    rtk = 0;
+    rtk = 0,
+    done = 0,
+    nd = 0;
+  const parts = { val: 0, done: 0, rtk: 0, wip: 0, todo: 0 },
+    rparts = { chk: 0, fresh: 0, old: 0, todo: 0 };
   r.forEach(i => {
+    const f = d ? deptScore(i, d) : i.done;
+    if (f != null) {
+      done += f;
+      nd++;
+    }
     (d ? [d] : required(i)).forEach(x => {
       n++;
-      if (['done', 'rework'].includes(i.states[x])) done++;
       if (i.ok[x] || i.mine[x] === 'val') val++;
       rtk += rtkNotes(i, x).length;
+      parts[partOf(i, x)]++;
+      rparts[renderOf(i, x)]++;
     });
   });
-  return n ? { done: done / n, val: val / n, rtk, n: r.length } : null;
+  return n ? { done: nd ? done / nd : 0, val: val / n, rtk, n: r.length, parts, rparts, np: n } : null;
+}
+/* A Breakdown cell's bar: each department of its files in one state, left to right -- validated, done, in
+   retake (done with an open retake: one or ten, the same), in progress (reworked too: being fixed, no need
+   to say retake), the rest to do (not started, a retake on it or not). */
+const SPARTS = [
+  ['val', 'var(--st-val)', 'Validated', '{n} validated'],
+  ['done', 'var(--st-done)', 'Done', '{n} done'],
+  ['rtk', 'var(--st-rtk)', 'In retake', '{n} in retake'],
+  ['wip', 'var(--st-wip)', 'In progress', '{n} in progress']
+];
+/* Renders: each department's own latest render, as its diamond's dot says it (info(): it.rf, it.rc) -- to
+   check (green), up to date (rendered after its latest session), older than its latest session (faint), the
+   rest never rendered. */
+const RPARTS = [
+  ['chk', 'var(--st-you)', 'To check', '{n} to check'],
+  ['fresh', 'var(--text-2)', 'Up to date', '{n} up to date'],
+  ['old', 'color-mix(in srgb, var(--text-2) 35%, transparent)', 'Outdated', '{n} outdated']
+];
+const sParts = () => (S.sview === 'render' ? RPARTS : SPARTS);
+function renderOf(i, x) {
+  if ((i.rc || []).includes(x)) return 'chk';
+  const rf = (i.rf || {})[x];
+  return rf ? (rf[0] ? 'fresh' : 'old') : 'todo';
+}
+function partOf(i, x) {
+  const st = stOf(i, x);
+  if (st === 'wip' || st === 'rework') return 'wip';
+  if (st !== 'done') return 'todo';
+  if (rtkNotes(i, x).length) return 'rtk';
+  return i.ok[x] || i.mine[x] === 'val' ? 'val' : 'done';
 }
 function renderSynth() {
-  const L = $('#list'),
-    mode = S.smode;
-  const sumCell = synthCell;
+  const L = $('#list');
+  // Progress: its departments' states, stacked (SPARTS), its figure Done as the list counts it. Renders: their
+  // renders (RPARTS), its figure the share up to date (to check too).
+  const rv = S.sview === 'render',
+    P = sParts();
   const field = c => {
     if (!c) return '<span class="sf na">–</span>';
-    if (mode === 'rtk') {
-      const p = Math.min(1, c.rtk / 6);
-      return `<span class="sf ${p >= IN ? 'in' : ''}" style="--p:${p * 100}%;--c:var(--st-rtk)"><b class="v">${c.rtk ? c.rtk + ' RTK' : '–'}</b></span>`;
-    }
-    const p = mode === 'val' ? c.val : c.done;
-    return `<span class="sf ${p >= IN ? 'in' : ''}" style="--p:${p * 100}%;--c:${mode === 'val' ? 'var(--st-val)' : 'var(--st-done)'}"><b class="v">${Math.round(p * 100)} %</b></span>`;
+    const q = rv ? c.rparts : c.parts;
+    let at = 0;
+    const stops = P.flatMap(([k, col]) => {
+      const a = at;
+      at += (q[k] / c.np) * 100;
+      return q[k] ? [`${col} ${a}% ${at}%`] : [];
+    });
+    const f = rv ? (q.chk + q.fresh) / c.np : c.done;
+    const tip = [...P.map(([k, , , t]) => q[k] && T(t, { n: q[k] })), q.todo && T(rv ? '{n} not rendered' : '{n} to do', { n: q.todo })]
+      .filter(Boolean)
+      .join(' · ');
+    return `<span class="sf" style="--p:${at}%;--c:${stops.length ? `linear-gradient(90deg,${stops.join(',')})` : 'none'}" title="${T(rv ? 'Rendered up to date {pct}' : 'Done {pct}', { pct: pct(f) })} · ${tip}"><b class="v">${Math.round(f * 100)} %</b></span>`;
   };
   const table = (kind, title) => {
     const dl = DEPTS[kind],
@@ -221,7 +276,7 @@ function renderSynth() {
       ${groups
         .map(g => {
           const its = pool.filter(i => groupOf(i) === g);
-          return `<button class="sn" data-sgo="${g}" data-skind="${kind}" title="${T('Open {name}', { name: g })}">${ic('b-rightarrow', 'i rot')}<span class="mono">${g}</span><span class="faint">${its.length}</span></button>${dl.map(d => field(sumCell(its, d))).join('')}${field(sumCell(its, null))}`;
+          return `<button class="sn" data-sgo="${g}" data-skind="${kind}" title="${T('Open {name}', { name: g })}">${ic('b-rightarrow', 'i rot')}<span class="mono">${g}</span><span class="faint">${its.length}</span></button>${dl.map(d => field(synthCell(its, d))).join('')}${field(synthCell(its, null))}`;
         })
         .join('')}</div></div>`;
   };
@@ -234,7 +289,7 @@ function renderSynth() {
     <div class="kpi"><span class="t">${T('Open retakes')}</span><span class="big">${items.reduce((a, i) => a + openRtk(i), 0)}</span><span class="faint">${T('on {n} file|on {n} files', { n: items.filter(openRtk).length })}</span></div>
     ${M.schedule ? `<div class="kpi"><span class="t">${T('Schedule · day {d} / {total}', { d: M.schedule.elapsed_days, total: M.schedule.total_days })}</span><span class="sf sch ${M.progress.shot >= IN ? 'in' : ''}" style="--p:${M.progress.shot * 100}%;--c:var(--st-done);--e:${M.schedule.expected * 100}%" title="${T('The line: where the shots should be today')}"><span class="lab ${M.progress.shot >= 0.45 ? 'on' : ''}">${T('Shots done')}</span><b class="v">${pct(M.progress.shot)}</b><i class="mk2"></i></span><span class="faint">${T('expected {pct}', { pct: pct(M.schedule.expected) })} · ${M.progress.shot < M.schedule.expected ? '<span class="bad">' + T('{n} points behind', { n: Math.round((M.schedule.expected - M.progress.shot) * 100) }) + '</span>' : T('on time')}</span></div>` : ''}
     <div class="kpi"><span class="t">${T('Set aside')}</span><span class="big">${items.filter(omitted).length}</span><span class="faint">${T('on hold or cancelled, out of the figures')}</span></div></div>
-  ${S.weights ? `<p class="weights">${T("A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don't count. Validated is counted apart: by the role {role}, on the stable shown.", { wip: (M.weights || {}).wip ?? 33, rework: (M.weights || {}).rework ?? 67, rtk: (M.weights || {}).rtk ?? 67, role: esc(M.role) })}</p>` : ''}
+  ${S.weights ? `<p class="weights">${T("A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don't count. Validated is counted apart: by the role {role}, on the stable shown.", { wip: (M.weights || {}).wip ?? 33, rework: (M.weights || {}).rework ?? 67, rtk: (M.weights || {}).rtk ?? 67, role: esc(M.role) })} ${T("The bar: each department in one state -- validated, done, in retake (done with an open retake, one or ten), in progress (reworked too), to do (not started, a retake on it or not).")}</p>` : ''}
   ${table('shot', T('Shots'))}${table('asset', T('Assets'))}${overTime()}${projection()}${activity()}`;
 }
 /* Over time: one point a day (lib/monitoring/progress_log.py), Done and Validated of the shots

@@ -47,7 +47,7 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
     user_name: bpy.props.StringProperty(
         name="User name",
         default="",
-        description="Your name (used in logs).",
+        description="Your name: your notes, renders, validations and the log go by it.",
         update=save_settings,
     )
 
@@ -65,6 +65,14 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         name="Auto-launch worker",
         description="Automatically make this machine a farm worker when a "
         "project becomes active (on Blender startup, or when switching projects).",
+        default=False,
+        update=save_settings,
+    )
+    auto_open_live_page: bpy.props.BoolProperty(
+        name="Open the live page",
+        description="Open the project's page in the browser when Blender starts "
+        "with a project active, or when another one becomes active -- once: not "
+        "when this Blender, or another one on this machine, serves it already",
         default=False,
         update=save_settings,
     )
@@ -91,7 +99,7 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
 
     onboarding_seen: bpy.props.BoolProperty(
         name="Onboarding seen",
-        description="Internal: the first-launch popup has already been shown.",
+        description="Internal: the first-launch welcome has already been shown.",
         default=False,
         update=save_settings,
     )
@@ -118,6 +126,7 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
 
         col_toggles.prop(self, "silent_auto_increment")
         col_toggles.prop(self, "auto_worker_on_open")
+        col_toggles.prop(self, "auto_open_live_page")
         col_toggles.prop(self, "always_read_only")
         col_toggles.prop(self, "ffmpeg_path")
 

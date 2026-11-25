@@ -137,6 +137,17 @@ def _text(value) -> str:
     return str(value if value is not None else "").strip()
 
 
+def _frames(frames) -> tuple | None:
+    """A note's frames as the page writes them ([start, end or null]) checked: (start, end or None), or None."""
+    try:
+        frames = (int(frames[0]), int(frames[1]) if frames[1] is not None else None) if frames else None
+    except (TypeError, ValueError, IndexError):
+        return None
+    if frames and frames[1] is not None and frames[1] < frames[0]:
+        return None
+    return frames
+
+
 def _action(raw) -> dict | None:
     """One action, its fields checked and cleaned; None for one not
     understood (left out)."""
@@ -147,13 +158,7 @@ def _action(raw) -> dict | None:
         a.update(department=_text(raw.get("department")).lower(), seen=_text(raw.get("seen")))
         return a if a["department"] else None
     if t in ("rtk", "note", "todo"):
-        frames = raw.get("frames")
-        try:
-            frames = (int(frames[0]), int(frames[1]) if frames[1] is not None else None) if frames else None
-        except (TypeError, ValueError, IndexError):
-            frames = None
-        if frames and frames[1] is not None and frames[1] < frames[0]:
-            frames = None
+        frames = _frames(raw.get("frames"))
         deps = raw.get("departments") or []
         a.update(
             departments=[_text(d).lower() for d in deps if _text(d)] if isinstance(deps, list) else [],
@@ -171,6 +176,13 @@ def _action(raw) -> dict | None:
         return a if a["id"] else None
     if t == "edit":
         a.update(id=_text(raw.get("id")), text=_text(raw.get("text")))
+        # Also changed, when said: its departments, its frames (null: none any more), its shot ("" none).
+        if isinstance(raw.get("departments"), list):
+            a["departments"] = [_text(d).lower() for d in raw["departments"] if _text(d)]
+        if "frames" in raw:
+            a["frames"] = _frames(raw.get("frames"))
+        if "shot" in raw:
+            a["shot"] = _text(raw.get("shot")) if str(raw.get("shot") or "").isdigit() else ""
         return a if a["id"] and a["text"] else None
     if t == "delete":
         a.update(id=_text(raw.get("id")))
@@ -207,6 +219,10 @@ def _action(raw) -> dict | None:
             a.update(sequence=_text(raw.get("sequence")), shot=_text(raw.get("shot")))
             for k in ("frame_start", "frame_end"):
                 a[k] = int(raw[k]) if str(raw.get(k) or "").isdigit() else None
+            # Each shot's start then the end ("1001-1051-1101"): kept when it fits the shots.
+            tl = _text(raw.get("timeline"))
+            fits = re.fullmatch(r"\d+(-\d+)*", tl) and len(tl.split("-")) == len(a["shot"].split("-")) + 1
+            a["timeline"] = tl if fits else ""
             return a if a["sequence"].isdigit() and re.fullmatch(r"\d+(-\d+)*", a["shot"]) else None
         if kind == "asset":
             a.update(prefix=_text(raw.get("prefix")).lower(), name=sanitize_name(_text(raw.get("name"))))
@@ -623,7 +639,10 @@ def import_review(path: Path, review: dict | None = None) -> dict:
             try:
                 if a["type"] == "delete":
                     delete_entry(filepath, a["id"])
-                elif not set_entry_text(filepath, a["id"], a["text"], author):
+                elif not set_entry_text(
+                    filepath, a["id"], a["text"], author,
+                    **{k: a[k] for k in ("departments", "frames", "shot") if k in a},
+                ):
                     continue
                 result["changed"] += 1
             except PipelineError as err:
@@ -762,6 +781,8 @@ def create_rows(review: dict) -> dict:
         if a["kind"] == "shot":
             row.update(sequence=a["sequence"], shot=a["shot"])
             row.update({k: str(a[k]) for k in ("frame_start", "frame_end") if a[k] is not None})
+            if a.get("timeline"):
+                row["timeline"] = a["timeline"]
         else:
             row.update(prefix=a["prefix"], name=a["name"])
         out[a["kind"]].append(row)

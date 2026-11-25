@@ -60,13 +60,31 @@ const img = id => (!id || !IMG[id] ? '' : M.thumbs ? M.thumbs + '/' + id : IMG[i
 /* Dates and times: day before month, a 24-hour clock, in every language (English as British English writes them). */
 const DTL = () => (LOCALE() === 'en' ? 'en-GB' : LOCALE());
 const HM = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
-const fmtD = iso => {
+const fmtAbs = iso => {
   const d = new Date(iso);
   return isNaN(d)
     ? ''
     : d.toLocaleDateString(DTL(), { day: '2-digit', month: '2-digit' }) +
         ' ' +
         d.toLocaleTimeString(DTL(), HM);
+};
+/* Under two weeks old, said relative to today: today its time alone, yesterday "yesterday 09:10",
+   then "5 days ago"; older (or ahead), the date itself (fmtAbs(), for exports and tooltips). */
+const fmtD = iso => {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const day = x => Date.UTC(x.getFullYear(), x.getMonth(), x.getDate()),
+    n = Math.round((day(new Date()) - day(d)) / 864e5);
+  if (n < 0 || n >= 14) return fmtAbs(iso);
+  const hm = d.toLocaleTimeString(DTL(), HM);
+  if (n === 0) return hm;
+  let rel;
+  try {
+    rel = new Intl.RelativeTimeFormat(DTL(), { numeric: 'auto' }).format(-n, 'day');
+  } catch (_) {
+    return fmtAbs(iso);
+  }
+  return n === 1 ? rel + ' ' + hm : rel;
 };
 const LOCALE = () => (typeof MPI18n !== 'undefined' ? MPI18n.lang : 'en');
 /* The frames a video has when it says nothing (no fps, no length known yet). */
@@ -132,6 +150,9 @@ function adapt(r, keyName) {
   });
 }
 /* The whole data in: first load, then each live update (the review left on each file kept). */
+/* Background work the live page started (Update links, pushes...): lib/monitoring/live.py's
+   "tasks", said in the footer. */
+const BG = [];
 function loadData(raw) {
   const kept = {};
   items.forEach(it => {
@@ -164,6 +185,7 @@ function loadData(raw) {
     items.length,
     ...(raw.items || []).map(r => Object.assign(adapt(r, keyName), fresh(), kept[r.name] || {}))
   );
+  BG.splice(0, BG.length, ...(raw.tasks || []));
   const f = raw.farm || {};
   Object.assign(F, { status: '', jobs: [], workers: [], me: {}, left: '', presets: [], preset: '' }, f);
   F.jobs.forEach(j => {
@@ -202,7 +224,6 @@ const S = {
   wdep: null,
   wtype: 'rtk',
   g: { x: 0, y: 0, z: 1, init: false },
-  smode: 'done',
   ot: { kind: 'shot', dept: '' },
   act: 'files', // Activity: files worked, or time
   td: { kind: 'shot', st: null, dept: '', who: null }, // st null: tdSt() by the role
@@ -214,6 +235,7 @@ const S = {
   notifSys: false,
   editDesc: false,
   weights: false,
+  sview: 'prog', // Breakdown: Progress or Renders
   scaleV: 1,
   bulk: null,
   ff: { s: '', mine: false, q: '' },

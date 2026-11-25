@@ -1,4 +1,23 @@
 /* ---------- Watch large ---------- */
+/* The strip's thumbnails: a file each; a block of shots, one per shot, framed together -- a
+   click watches that shot (its own thumbnail when it has one), the block's whole renders first
+   when it has any. */
+const filmHTML = it => i => {
+  const nm = i.kind === 'shot' ? i.name.replace(i.group + '_', '') : i.name,
+    dot = `<span class="dt" style="background:${DOT[worst(i)]}"></span>`,
+    th = src => `<span class="thumb">${src ? `<img src="${src}" alt="">` : ''}</span>`;
+  if (!(i.shots && i.shots.length > 1))
+    return `<button class="${i.name === it.name ? 'cur' : ''}" data-film="${i.name}" title="${i.name}">${th(i.thumb)}<span class="fn">${dot}${mq(nm)}</span></button>`;
+  const own = new Map((i.shot_thumbs || []).map(([l, id]) => [l, img(id)])),
+    on = i.name === it.name ? shotOf(it) : null,
+    whole = i.versions.some(v => !v.shot) ? [''] : [];
+  // Its first shot full size, as a file's, its state's dot by its name; the others smaller,
+  // its whole name above them -- while one of its shots is watched, or hovered.
+  const b = (s, k) =>
+    `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${k ? '' : dot}${s ? mq(s) : T('Whole')}</span></button>`;
+  const [first, ...rest] = [...whole, ...i.shots];
+  return `<span class="blk ${on != null ? 'on' : ''}" title="${i.name}">${b(first, 0)}<span class="br"><span class="bn">${mq(nm)}</span><span class="bs">${rest.map((s, k) => b(s, k + 1)).join('')}</span></span></span>`;
+};
 function renderWide() {
   const W = $('#wide');
   if (!S.wide) {
@@ -40,14 +59,11 @@ function renderWide() {
       );
     })
     .join('');
-  const rng =
-    S.rangeStart != null
-      ? `<span class="rng sel" id="rng-sel" style="left:${((Math.min(S.rangeStart, S.frame) - 1) / (NF - 1)) * 100}%;width:${(Math.abs(S.frame - S.rangeStart) / (NF - 1)) * 100}%"></span>`
-      : '';
+  const rng = rngSelHTML();
   const dRow = d => {
     const x = info(it, d),
       m = it.mine[d];
-    return `<div class="wd ${d === S.wdep ? 'on' : ''}"><button class="wdn" data-wdep="${d}" title="${T('Write your retakes here')}">${glyph(x.base, x.corner, x.cnt, x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}</span></span></button>
+    return `<div class="wd ${d === S.wdep ? 'on' : ''}"><button class="wdn" data-wdep="${d}" title="${T('Write your retakes here')}">${glyph(x.base, x.corner, x.cnt, x.note, x.r)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}</span></span></button>
     ${rv ? `<span class="join"><button class="btn sm ok icon" data-wok="${d}" aria-pressed="${m === 'val'}" ${rv.role === TEAM || !isDone(stOf(it, d)) || it.ok[d] ? 'disabled' : ''} aria-label="${T('Validate {dept}', { dept: LBL[d] })}" title="${T('Validate')}">${ic('b-checkmark')}</button><button class="btn sm alert icon" data-wko="${d}" aria-pressed="${m === 'rtk'}" aria-label="${T('Retake {dept}', { dept: LBL[d] })}" title="${T('Send back as a retake')}">${ic('b-x')}</button></span>` : ''}</div>`;
   };
   // A retake / to-do checked off from here (its Mark fixed / done), shown on the row hovered.
@@ -72,8 +88,8 @@ function renderWide() {
           const tx = `<span class="tx">${esc(n.text || T('(no text)'))}<small> · ${esc((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department'))}${n.mine ? ' · ' + esc(T('you, not sent yet')) : n.author ? ' · ' + esc(n.author) : ''}</small></span>`;
           return `<div class="wnr">${
             f
-              ? `<button class="wn" data-goto="${f.a}"><span class="ft ${ftc(n)}">f${f.a}${f.b ? '-' + f.b : ''}</span>${tx}</button>`
-              : `<div class="wn nof"><span class="ft ${ftc(n)}" title="${T('No frame')}">—</span>${tx}</div>`
+              ? `<button class="wn" data-goto="${f.a}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''}><span class="ft ${ftc(n)}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}f${f.a}${f.b ? '-' + f.b : ''}</span>${tx}</button>`
+              : `<div class="wn nof"><span class="ft ${ftc(n)}" title="${T('No frame')}">${noteShot(it, n) ? esc(noteShot(it, n)) : '—'}</span>${tx}</div>`
           }${wfx(n)}</div>`;
         })
         .join('')
@@ -81,7 +97,7 @@ function renderWide() {
   const writer =
     rv && S.wdep
       ? `<div class="ww"><div class="wwl"><span class="join"><button class="btn sm" data-wtype="rtk" aria-pressed="${S.wtype === 'rtk'}">Retake</button><button class="btn sm" data-wtype="note" aria-pressed="${S.wtype === 'note'}">${T('Remark')}</button><button class="btn sm" data-wtype="todo" aria-pressed="${S.wtype === 'todo'}">${T('To do')}</button></span>
-      <span class="lbl">${S.rangeStart != null ? T('from <b>f{a}</b> to <b>f{b}</b> on <b>{dept}</b>', { a: fNo(S.rangeStart), b: `<span data-f>${fNo(S.frame)}</span>`, dept: LBL[S.wdep] }) : T('at <b>f{b}</b> on <b>{dept}</b>', { b: `<span data-f>${fNo(S.frame)}</span>`, dept: LBL[S.wdep] })}</span>
+      <span class="lbl">${S.rangeStart != null ? T('from <b>f{a}</b> to <b>f{b}</b> on <b>{dept}</b>', { a: fNo(S.rangeStart), b: `<span data-f>${fNo(S.frame)}</span>`, dept: LBL[S.wdep] }) : T('at <b>f{b}</b> on <b>{dept}</b>', { b: `<span data-f>${fNo(S.frame)}</span>`, dept: LBL[S.wdep] })}${writeShot(it) ? ` · <b>${esc(writeShot(it))}</b>` : ''}</span>
       <button class="btn sm ${S.rangeStart != null ? '' : 'tool'}" data-tp="in" ${pOff(it)} aria-pressed="${S.rangeStart != null}" title="${S.rangeStart != null ? T("Forget the range's start") : T('A range: its start at the frame shown, its end where you are when you add (I)')}">${S.rangeStart != null ? '⇤ f' + S.rangeStart + ' ✕' : '⇤ ' + T('Range from here')}</button></div>
       <label class="field ta"><textarea id="w-ta" rows="3" placeholder="${T('Write as you watch: Enter adds, Shift+Enter goes to a new line')}" aria-label="${T('Text')}"></textarea></label></div>`
       : !rv
@@ -89,36 +105,56 @@ function renderWide() {
         : '';
   W.innerHTML = `<div class="w-head"><button class="btn icon" data-wclose aria-label="${T('Close')}" title="${T('Close (Esc)')}">${ic('b-x')}</button>
       <span class="phead"><span class="pname">${it.name}</span><span class="d">${[v && v.folder, it.toCheck ? T('to check') : '', it.desc].filter(Boolean).map(esc).join(' · ')}</span></span>
-      <span class="faint only-wide">${S.seqPlay ? '▶ ' + T('playing the sequence') + ' · ' : ''}${T('{k} / {n} in {seq}', { k: sib.findIndex(i => i.name === it.name) + 1, n: sib.length, seq: g })}</span>
+      <span class="faint only-wide">${T('{k} / {n} in {seq}', { k: sib.findIndex(i => i.name === it.name) + 1, n: sib.length, seq: g })}</span>
       <span class="join"><button class="btn icon" data-wstep="-1" ${stepOff(-1)} aria-label="${T('Previous file')}" title="${T('Previous file (←)')}">${ic('b-tria_left')}</button><button class="btn icon" data-wstep="1" ${stepOff(1)} aria-label="${T('Next file')}" title="${T('Next file (→)')}">${ic('b-tria_right')}</button></span>
       ${rv ? `<span class="review-chip only-wide"><span class="who">${esc(rv.name)} · ${rv.role}</span></span>` : ''}
       <button class="btn icon" data-act="player" aria-label="${T("This machine's player")}" title="${T("Open the original video in this machine's player")}">${ic('b-file_movie')}</button>
       <button class="btn icon" data-full aria-pressed="${!!S.wfull}" aria-label="${T('Full screen')}" title="${S.wfull ? T('Leave full screen (Esc)') : T('Full screen: the video alone')}">${ic(S.wfull ? 'b-fullscreen_exit' : 'b-fullscreen_enter')}</button></div>
     <div class="w-body"><div class="w-main">
-      <div class="w-stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}<span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${v ? esc(v.folder) + ' · ' : ''}f <span data-f>${fNo(S.frame)}</span></span></div>
+      <div class="w-stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${thumbOf(it) ? `<img src="${thumbOf(it)}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}<span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${v ? esc(v.folder) + ' · ' : ''}f <span data-f>${fNo(S.frame)}</span></span></div>
       <div class="w-tl"><div class="scrub big ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
         <div class="ruler"><span>f1</span><span>f${Math.round(NF / 4)}</span><span>f${Math.round(NF / 2)}</span><span>f${Math.round((NF * 3) / 4)}</span><span>f${NF}</span></div></div>
-      <div class="w-tp"><span class="join"><button class="btn icon" data-tp="sprev" aria-label="${T('Previous shot')}" title="${it.kind === 'shot' ? T('Previous shot') : T('Previous file')}" ${stepOff(-1)}>${ic('b-back')}</button>
+      <div class="w-tp"><div class="w-ctl"><div class="w-row"><span class="join"><button class="btn icon" data-tp="sprev" aria-label="${T('Previous shot')}" title="${it.kind === 'shot' ? T('Previous shot') : T('Previous file')}" ${stepOff(-1)}>${ic('b-back')}</button>
         <button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button>
         <button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing ? 'b-pause' : 'b-play')}</button>
         <button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button>
-        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span>${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}<span class="sp"></span>
-        <div class="strip"><span class="faint">${g}</span>${sib.map(i => `<button class="${i.name === it.name ? 'cur' : ''}" data-film="${i.name}" title="${i.name}"><span class="thumb">${i.thumb ? `<img src="${i.thumb}" alt="">` : ''}</span><span class="fn"><span class="dt" style="background:${DOT[worst(i)]}"></span>${mq(i.kind === 'shot' ? i.name.replace(i.group + '_', '') : i.name)}</span></button>`).join('')}</div></div>
+        <span class="join wend" title="${T('At the end of the video')}"><button class="btn sm" data-wend="loop" aria-pressed="${!S.seqPlay}" title="${T('At the end: the same video again')}">${ic('b-loop_back')}${T('Loop')}</button><button class="btn sm" data-wend="next" aria-pressed="${!!S.seqPlay}" title="${T('At the end: the next shot of {seq}, as Play the sequence', { seq: esc(g) })}">${ic('b-forward')}${T('Next')}</button></span>
+        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span></div>
+        <div class="w-vab">${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}</div></div>
+        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>
     </div>
     <div class="w-pan"><button class="pz-tab r w-tab" data-wside aria-expanded="${!!S.wside}" aria-label="${S.wside ? T('Fold the panel') : T('Show the panel')}" title="${S.wside ? T('Fold the panel') : T('Show the panel')}">${ic(S.wside ? 'b-tria_right' : 'b-tria_left')}</button>
     <div class="w-side">${checkHTML(it)}<div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}</div>
       <div class="sec"><div class="sec-h">${T('Notes')}<span class="sp"></span><span class="faint" style="text-transform:none;letter-spacing:0">${T('a frame: click to go there')}</span></div><div class="wnf">${wntH}</div>${notesAt}</div>
       <div class="sec wsec">${writer}</div></div></div>
     <button class="pz-tab w-htab" data-whead aria-expanded="${!!S.whead}" aria-label="${S.whead ? T('Hide the header') : T('Show the header')}" title="${S.whead ? T('Hide the header') : T('Show the header')}">${ic(S.whead ? 'b-tria_up' : 'b-tria_down')}</button></div>`;
-  // The strip alone scrolls: scrollIntoView would also scroll the panes around it.
+  // The strip alone scrolls: scrollIntoView would also scroll the panes around it. Centred on
+  // the file (or shot) when it changes, else left where it was scrolled -- redrawn, it came back.
   const st = W.querySelector('.strip'),
-    cb = st && st.querySelector('.cur');
-  if (cb) {
+    cb = st && st.querySelector('.cur'),
+    key = it.name + '|' + shotOf(it);
+  if (st && W._film === key && W._sl != null) st.scrollLeft = W._sl;
+  else if (cb) {
     st.scrollLeft = cb.offsetLeft - st.offsetLeft - (st.clientWidth - cb.offsetWidth) / 2;
     mqGo(cb, true);
   }
+  W._film = key;
+  if (st) {
+    W._sl = st.scrollLeft;
+    stripFade(st);
+  }
+}
+addEventListener('resize', () => {
+  const st = document.querySelector('#wide .strip');
+  if (st) stripFade(st);
+});
+/* A strip's edge faded where thumbnails hide past it: the more to scroll, up to 32 px. */
+function stripFade(st) {
+  const r = st.scrollWidth - st.clientWidth - st.scrollLeft;
+  st.style.setProperty('--fl', Math.min(32, Math.max(0, st.scrollLeft)) + 'px');
+  st.style.setProperty('--fr', Math.min(32, Math.max(0, r)) + 'px');
 }
 /* Full screen: the video alone (its timeline and transport), the window's whole screen where the browser
    allows it (none on an iPhone: the page alone then fills the window). */
@@ -147,6 +183,30 @@ function wideFull(on) {
       } catch (_) {}
   }
   renderWide();
+}
+/* The strip: its scroll kept for the next draw; the wheel scrolls it sideways (a mouse has no other way). */
+{
+  const W = $('#wide');
+  W?.addEventListener(
+    'scroll',
+    e => {
+      if (e.target.classList && e.target.classList.contains('strip')) {
+        W._sl = e.target.scrollLeft;
+        stripFade(e.target);
+      }
+    },
+    true
+  );
+  W?.addEventListener(
+    'wheel',
+    e => {
+      const st = e.target.closest && e.target.closest('.strip');
+      if (!st || e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) || st.scrollWidth <= st.clientWidth) return;
+      st.scrollLeft += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      e.preventDefault();
+    },
+    { passive: false }
+  );
 }
 /* The browser's full screen left (its Esc, its gesture): the video alone left too. */
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev =>
@@ -231,7 +291,7 @@ function wideAdd() {
     d = S.wdep;
   if (!txt) return;
   const fr = rangeStr();
-  A.note(it, { type: S.wtype, dept: d, text: txt, frames: fr });
+  A.note(it, { type: S.wtype, dept: d, text: txt, frames: fr, shot: digits(writeShot(it)) });
   S.rangeStart = null;
   refresh();
   msg(

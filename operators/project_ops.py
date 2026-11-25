@@ -42,34 +42,17 @@ from ..lib import (
     warn_blender_version_mismatch,
 )
 from ..lib.migration import migration_record
-from ..lib.presets import presets_without_department, preset_rename_problem, rename_preset
-from ..lib.core import cached_scandir, write_json_atomic
+from ..lib.presets import presets_without_department, preset_rename_problem, render_presets, rename_preset
+from ..lib.core import write_json_atomic
 from ..lib import formats
 from ..lib.monitoring.status import preset_department
 from .farm_ops import (
+    NO_SCRIPT_ITEM,
     _NO_SCRIPT,
     _stable_enum_items,
-    default_pre_render_script,
     department_preset,
     pre_render_script_items,
 )
-
-_edited_pre_render_scripts: list[tuple[str, str, str]] = []
-
-
-def _edited_project_scripts(self, context):
-    """Pre-render presets of the project being edited -- not necessarily
-    the active one."""
-    root = self.project_path_selected
-    presets = Path(root) / "config" / "presets" if root else None
-    # The departments as typed in the fields, not yet saved.
-    departments = [
-        *parse_departments(self.shots_departments)[0],
-        *parse_departments(self.assets_departments)[0],
-    ]
-    return _stable_enum_items(
-        _edited_pre_render_scripts, pre_render_script_items(presets, departments)
-    )
 
 # ---------------------------------------------------------------------------
 # Default config template
@@ -218,7 +201,7 @@ class M_PIPELINE_OT_create_project(bpy.types.Operator):
         install_default_preset()
         install_default_ffmpeg_preset()
         # A render preset per department (<department>_default.py).
-        install_department_presets([*config.get("shots_departments", []), *config.get("assets_departments", [])])
+        install_department_presets(config.get("shots_departments", []), config.get("assets_departments", []))
 
         # Deferred one timer tick -- see NOTES.md, "Popup-chaining".
         project_root_str = str(project_root)
@@ -562,12 +545,6 @@ class ProjectSettings:
         ),
     )
 
-    default_prerender_script: bpy.props.EnumProperty(
-        items=_edited_project_scripts,
-        name="",
-        description="Pre-render script the Render dialog starts with",
-    )  # type: ignore
-
     video_format: bpy.props.EnumProperty(
         name="",
         items=[
@@ -825,7 +802,6 @@ class ProjectSettings:
         self._rows(farm, [
             ("VIDEO", "FILE_MOVIE", "video_format"),
             ("CHUNK SIZE", "RENDER_RESULT", "chunk_size"),
-            ("PRE-RENDER", "SCRIPT", "default_prerender_script"),
             ("STUCK FRAME", "ERROR", "stuck_frame_factor",
              ("x usual time: kill" if self.stuck_frame_factor else "0 = never kill",)),
             ("PRIORITY SWITCH", "SORT_DESC", "priority_switch_minutes",
@@ -844,11 +820,7 @@ class ProjectSettings:
         root = self.project_path_selected
         if not root:
             return
-        names = [
-            Path(e.name).stem
-            for e in cached_scandir(Path(root) / "config" / "presets")
-            if e.name.endswith(".py") and e.name != "asset_file_preset.py"
-        ]
+        names = list(render_presets(Path(root), fresh=False))
         # Set for a department (By department…): it has one, whatever its name.
         assigned = set(((read_project_config(root) or {}).get("farm") or {}).get("department_presets", {}).values())
         loose = sorted(n for n in names if n not in assigned and not preset_department(n, self._departments()))
@@ -890,9 +862,6 @@ class ProjectSettings:
         self.schedule_days_off = self._days(schedule.get("days_off", []))
         worked = schedule.get("worked_days", WORK_WEEK)
         self.schedule_worked_days = [d in worked for d in range(1, 8)]
-        self.default_prerender_script = default_pre_render_script(
-            config, _edited_project_scripts(self, context)
-        )
         self.chunk_size = max(
             1, int((config.get("farm") or {}).get("chunk_size", 5) or 5)
         )
@@ -986,19 +955,15 @@ class ProjectSettings:
                     "assets": parse_departments(self.assets_departments)[1],
                     "shots": parse_departments(self.shots_departments)[1],
                 },
-                # "farm": only stuck_frame_factor, priority_switch_minutes,
-                # chunk_size and default_prerender_script are edited here, the
-                # rest stays as read from the loaded config.
-                "farm": (config.get("farm") or {})
+                # "farm": only stuck_frame_factor, priority_switch_minutes and
+                # chunk_size are edited here, the rest stays as read from the
+                # loaded config -- but the one default pre-render script, gone
+                # (each department's own: By department…).
+                "farm": {k: v for k, v in (config.get("farm") or {}).items() if k != "default_prerender_script"}
                 | {
                     "stuck_frame_factor": self.stuck_frame_factor,
                     "priority_switch_minutes": self.priority_switch_minutes,
                     "chunk_size": self.chunk_size,
-                    "default_prerender_script": (
-                        ""
-                        if self.default_prerender_script == _NO_SCRIPT
-                        else self.default_prerender_script
-                    ),
                 },
                 "thumbnails": (config.get("thumbnails") or {})
                 | {"size": self.thumbnail_size},
@@ -1028,8 +993,7 @@ class ProjectSettings:
         out = []
         # A department with no render preset yet gets its default one.
         made = install_department_presets(
-            [*config["shots_departments"], *config["assets_departments"]],
-            Path(self.project_path_selected) / "config" / "presets",
+            config["shots_departments"], config["assets_departments"], Path(self.project_path_selected)
         )
         if made:
             out.append(("INFO", f"Render presets made: {', '.join(made)}"))
@@ -1177,11 +1141,7 @@ _rename_items: list = []
 
 def _rename_preset_items(self, context):
     root = Path(self.project_root) if self.project_root else None
-    names = sorted(
-        Path(e.name).stem
-        for e in (cached_scandir(root / "config" / "presets") if root else [])
-        if e.name.endswith(".py") and e.name != "asset_file_preset.py"
-    )
+    names = sorted(render_presets(root, fresh=False)) if root else []
     return _stable_enum_items(_rename_items, [(n, n, "") for n in names] or [("", "No render preset", "")])
 
 
@@ -1192,8 +1152,8 @@ class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
     bl_idname = "m_pipeline.rename_preset"
     bl_label = "Rename preset"
     bl_description = (
-        "Rename a render preset and every place citing it -- the default "
-        "pre-render script, the renders' history, the farm's paces. Its name "
+        "Rename a render preset and every place citing it -- the presets by "
+        "department, the renders' history, the farm's paces. Its name "
         "gives its renders' department: lighting_hd, lighting's"
     )
     bl_options = {"INTERNAL"}
@@ -1221,7 +1181,7 @@ class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
         if not self.project_root:
             return {"CANCELLED"}
         # The first one giving no department, to start with: the reason to rename.
-        loose = presets_without_department(Path(self.project_root) / "config" / "presets", self._departments(context))
+        loose = presets_without_department(Path(self.project_root), self._departments(context))
         if loose:
             self.old = loose[0]
         self.new = self.old
@@ -1243,7 +1203,7 @@ class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
         tip = col.column(align=True)
         tip.active = False
         tip.scale_y = 0.8
-        tip.label(text="Updated too: the default pre-render script, every render's", icon="INFO")
+        tip.label(text="Updated too: the presets by department, every render's", icon="INFO")
         tip.label(text="history, the farm's paces. Refused while the farm has jobs.", icon="BLANK1")
 
     def execute(self, context):
@@ -1257,13 +1217,6 @@ class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
         except (PipelineError, OSError) as e:
             self.report({"ERROR"}, f"Rename preset: {getattr(e, 'message', e)}")
             return {"CANCELLED"}
-        settings = context.window_manager.pipeline_project_settings
-        if settings.project_path_selected == self.project_root and out["default"]:
-            # Its picker's items re-read: the default follows the new name.
-            try:
-                settings.default_prerender_script = new
-            except TypeError:
-                pass
         ConfigCache.invalidate()
         self.report({"INFO"}, f"{self.old} renamed {new}: {out['renders']} render(s) in its history updated.")
         return {"FINISHED"}
@@ -1271,13 +1224,15 @@ class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
 
 # Presets by department: the project the popup edits, and each row's menu
 # items kept (Blender holds their strings, see _stable_enum_items()).
-_dp = {"root": "", "items": {}}
+_dp = {"root": "", "items": {}, "kinds": {}}
 
 
 def _dp_items(self, context):
-    """A department's row: no script, its presets first (its name's), the others."""
-    root = Path(_dp["root"]) if _dp["root"] else None
-    items = pre_render_script_items(root / "config" / "presets" if root else None, [self.department])
+    """A department's row: no script, its kind's presets (render_shots/ or
+    render_assets/; both for a department of both), its own first (its name's), the others."""
+    if not _dp["root"]:
+        return _stable_enum_items(_dp["items"].setdefault(self.department, []), [NO_SCRIPT_ITEM])
+    items = pre_render_script_items(Path(_dp["root"]), [self.department], _dp["kinds"].get(self.department))
     mine = [i for i in items[1:] if preset_department(i[0], [self.department])]
     rest = [i for i in items[1:] if i not in mine]
     out = [items[0], *mine, *([None] if mine and rest else []), *rest]
@@ -1306,7 +1261,9 @@ class M_PIPELINE_OT_department_presets(bpy.types.Operator):
         _dp["root"] = self.project_root
         config = read_project_config(self.project_root) or {}
         self.rows.clear()
-        deps = [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
+        shots, assets = config.get("shots_departments") or [], config.get("assets_departments") or []
+        _dp["kinds"] = {d: None if d in shots and d in assets else "shot" if d in shots else "asset" for d in [*shots, *assets]}
+        deps = [*shots, *assets]
         for d in dict.fromkeys(deps):
             row = self.rows.add()
             row.department = d

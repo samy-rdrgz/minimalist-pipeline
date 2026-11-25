@@ -84,7 +84,7 @@ svg.g {
 }
 .btn[aria-pressed="true"] {
   background: var(--sel);
-  color: #fff;
+  color: var(--on-sel);
   border-color: var(--sel-line);
 }
 .btn:disabled {
@@ -117,7 +117,7 @@ svg.g {
 .btn.primary {
   background: var(--sel);
   border-color: var(--sel-line);
-  color: #fff;
+  color: var(--on-sel);
 }
 .btn.primary:hover {
   background: var(--sel-hover);
@@ -167,6 +167,10 @@ svg.g {
 .join > .btn:last-child {
   border-radius: 0 var(--r) var(--r) 0;
 }
+/* Alone in its group (a single choice, the other one not offered): its four corners round. */
+.join > .btn:only-child {
+  border-radius: var(--r);
+}
 .join.full {
   display: flex;
 }
@@ -192,6 +196,8 @@ svg.g {
 .field input,
 .field textarea {
   flex: 1;
+  font: inherit;
+  line-height: normal;
   min-width: 0;
   width: 100%;
   background: none;
@@ -242,7 +248,7 @@ svg.g {
   width: calc(6px * var(--scale));
   height: calc(6px * var(--scale));
   margin: 0 var(--sp-1);
-  border-radius: 1px;
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   background: var(--c);
   transform: rotate(45deg);
   flex: none;
@@ -293,6 +299,14 @@ svg.g {
   font-size: var(--fs-s);
   color: var(--text-2);
 }
+.chkbar .ck1.all {
+  color: var(--text);
+  font-weight: 600;
+}
+.chkbar .ck1.all + .ck1:not(.all) {
+  border-top: 1px solid var(--line);
+  padding-top: var(--sp-3);
+}
 .chkbar .ck1 span {
   flex: 1;
   min-width: 0;
@@ -302,7 +316,7 @@ svg.g {
 .nt .btn.flat:hover {
   background: var(--line-2);
 }
-.chkbar .ck1 .btn.flat[aria-pressed="true"] {
+.chkbar .btn.flat[aria-pressed="true"] {
   color: var(--text);
   border-color: transparent;
   background: var(--line-2);
@@ -341,9 +355,12 @@ svg.g {
   font: var(--fs-s) var(--mono);
   cursor: pointer;
 }
-.chip-frame:hover {
+span.chip-frame {
+  cursor: default;
+}
+button.chip-frame:hover {
   background: var(--sel);
-  color: #fff;
+  color: var(--on-sel);
 }
 .bar {
   display: grid;
@@ -380,6 +397,16 @@ svg.g {
 .bar.bare {
   grid-template-columns: 1fr calc(34px * var(--scale));
 }
+/* A sequence's header: its bars named (the colour never alone), their track seen at 0 %. */
+.grp-h .bar .bl {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.grp-h .bar i {
+  background: var(--line-3);
+}
 .menu {
   position: absolute;
   z-index: 60;
@@ -410,7 +437,7 @@ svg.g {
 }
 .mi:hover {
   background: var(--sel);
-  color: #fff;
+  color: var(--on-sel);
 }
 .mi .lbl {
   flex: 1;
@@ -653,6 +680,7 @@ svg.g {
   grid-template-areas: "out main props";
 }
 .area {
+  position: relative; /* its scroll fades' box */
   background: var(--area);
   border-radius: var(--r-xl);
   min-width: 0;
@@ -953,9 +981,9 @@ body.out-open .scrim {
 }
 .grp-h .prog .bar {
   /* Full width (170) while the line has room; shrunk (down to 64) only to keep it on one line. */
-  width: calc(170px * var(--scale));
+  width: calc(220px * var(--scale));
   flex: 0 1 auto;
-  min-width: calc(64px * var(--scale));
+  min-width: calc(120px * var(--scale));
 }
 /* The list's tracks, each optional one a variable (Columns shown, below): the thumbnail, the
    file, the departments, Progress, Farm -- one left empty drops its track. */
@@ -996,13 +1024,17 @@ body.out-open .scrim {
 .rows > .row:last-child {
   border-bottom: 0;
 }
-.row:hover {
+.row:hover,
+.row.hov {
   background: var(--row-hover);
 }
-.row.sel {
+/* A file or a farm job picked: the same tint and rail. */
+.row.sel,
+.job.sel {
   background: var(--row-sel);
 }
-.row.sel::before {
+.row.sel::before,
+.job.sel::before {
   content: "";
   position: absolute;
   left: 0;
@@ -1036,7 +1068,7 @@ body.out-open .scrim {
 .row .cell .tx {
   transition: opacity 0.1s;
 }
-.row:not(:hover):not(.sel) .cell .tx {
+.row:not(:hover):not(.hov):not(.sel) .cell .tx {
   opacity: 0;
 }
 .thumb {
@@ -1345,10 +1377,6 @@ body.out-open .scrim {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.heat-wrap {
-  overflow-x: auto;
-  padding: 0 var(--sp-7);
-}
 .heat {
   width: 100%;
   min-width: 480px;
@@ -1370,7 +1398,7 @@ body.out-open .scrim {
   height: var(--h-lg);
   text-align: center;
   border-radius: var(--r);
-  color: #151515;
+  color: var(--on-st);
   font-weight: 500;
   cursor: pointer;
 }
@@ -1386,23 +1414,6 @@ body.out-open .scrim {
   color: var(--text-3);
   font-weight: 400;
   cursor: default;
-}
-.heat-legend {
-  display: flex;
-  gap: var(--sp-8);
-  flex-wrap: wrap;
-  padding: var(--sp-6) var(--sp-8) var(--sp-9);
-  color: var(--text-3);
-  font-size: var(--fs-s);
-  align-items: center;
-}
-.heat-legend i {
-  display: inline-block;
-  width: 22px;
-  height: 10px;
-  border-radius: var(--r-xs);
-  margin-right: var(--sp-3);
-  vertical-align: middle;
 }
 
 /* ---------- Detail ---------- */
@@ -1457,20 +1468,6 @@ body.out-open .scrim {
   display: flex;
   flex-direction: column;
   gap: var(--sp-7);
-}
-.pdesc {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
-}
-.pdesc .d {
-  color: var(--text-2);
-}
-.pdesc .m {
-  display: flex;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
-  align-items: center;
 }
 .pacts {
   display: flex;
@@ -1552,23 +1549,6 @@ body.out-open .scrim {
   place-items: center;
   color: var(--text-3);
 }
-.stage .novid {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-5);
-  border-radius: var(--r);
-  background: var(--overlay);
-  font-size: var(--fs-s);
-  flex-wrap: wrap;
-}
-.stage .novid .sp {
-  flex: 1;
-}
 .scrub {
   position: relative;
   height: var(--h-sm);
@@ -1604,6 +1584,7 @@ body.out-open .scrim {
   margin: calc(-1 * var(--sp-2)) 0 0 calc(-1 * var(--sp-2));
   background: var(--st-rtk);
   transform: rotate(45deg);
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   border: 0;
   padding: 0;
   cursor: pointer;
@@ -1724,6 +1705,39 @@ body.out-open .scrim {
 .form .chips > .faint {
   font-size: var(--fs-s);
   min-width: calc(80px * var(--scale));
+  flex: none;
+}
+/* A row of chips (departments, shots): its label, then the chips on one line, scrolled sideways
+   when they don't fit -- faded on the side where more is hidden (sxFade()), a thin bar under them
+   with room kept for it. */
+.form .r.chips {
+  flex-wrap: nowrap;
+}
+.form .r.chips > * {
+  flex: none;
+}
+.form .r.chips > .cx {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  gap: var(--sp-3);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+/* The label on the chips' line, not in the middle of the line and its bar. */
+.form .r.chips:has(> .cx) {
+  align-items: flex-start;
+}
+.form .r.chips:has(> .cx) > .faint {
+  line-height: var(--h-sm);
+}
+.form .r.chips > .cx:is(.sx-l, .sx-r) {
+  padding-bottom: 10px;
+}
+.form .r.chips > .cx > * {
+  flex: none;
 }
 .nt {
   background: var(--box);
@@ -1761,6 +1775,26 @@ body.out-open .scrim {
 .nt .h .sp {
   flex: 1;
 }
+/* Its author: said while the note is hovered, over its date (no room kept for it). */
+.nt .h .who-d {
+  position: relative;
+}
+.nt:hover > .h .who-d[data-who]::before {
+  content: attr(data-who);
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  white-space: nowrap;
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-s);
+  border: 1px solid var(--line);
+  background: var(--head);
+  color: var(--text);
+  font-weight: 500;
+  box-shadow: var(--shadow);
+  z-index: 5;
+  pointer-events: none;
+}
 .nt .t {
   white-space: pre-wrap;
   word-break: break-word;
@@ -1797,7 +1831,7 @@ body.out-open .scrim {
 }
 .type.rtk {
   background: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
 }
 .type.note {
   background: var(--line-3);
@@ -1811,7 +1845,7 @@ body.out-open .scrim {
 .nt.closed .type.rtk,
 .nt.closed .type.todo {
   background: var(--st-done);
-  color: #fff;
+  color: var(--on-state);
 }
 .type .i {
   width: 10px;
@@ -1823,7 +1857,7 @@ body.out-open .scrim {
 /* A validation's record: pink, read only. */
 .type.val {
   background: var(--st-val);
-  color: #fff;
+  color: var(--on-state);
 }
 .nt.appr {
   border-left-color: var(--st-val);
@@ -2108,14 +2142,18 @@ body.out-open .scrim {
   gap: var(--sp-4);
 }
 #list {
-  background: var(--sunk);
-  padding: var(--sp-6);
+  /* The screen's ground between the sequences' blocks (the gutters between areas): the blocks
+     stand out, edge to edge -- a gap above the first one only, under the header. The Farm tab's
+     groups alike (the same #list). */
+  background: var(--screen);
+  /* The gutter between areas (--gap), between the blocks and above the first. */
+  padding: var(--gap) 0 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-6);
+  gap: var(--gap);
 }
 .grp {
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: var(--r-xl);
   background: var(--area);
   overflow: clip;
@@ -2123,18 +2161,55 @@ body.out-open .scrim {
 }
 .grp-h {
   background: var(--line);
-  border-bottom: 1px solid var(--line-2);
-  top: calc(-1 * var(--sp-6));
+  border-bottom: 0; /* no line across the card: its header, the stripes */
+  top: calc(-1 * var(--gap)); /* the list's padding above the first block */
   padding: var(--sp-5) var(--sp-7);
 }
 .grp.closed .grp-h {
   border-bottom: 0;
 }
+/* Its block's top corners on the header itself: its blur (a backdrop-filter, ::before) isn't
+   clipped by the block's radius. Folded, the header is the whole block. */
+.grp-h {
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+}
+.grp.closed .grp-h {
+  border-radius: var(--r-xl);
+}
+/* Stuck at the list's top (stuckHeads(), on scroll): square, a band across. */
+.grp-h.stuck {
+  border-radius: 0;
+}
 .grp-h b {
   color: var(--text);
 }
+/* The rows striped as the outliner's, no line between them -- a sequence's files and the farm's
+   jobs alike. The departments' header keeps its own colour and line. Counted among the rows
+   ("of .row"): the header, a .rows' first child, apart. */
 .cols {
   background: var(--cols);
+}
+.rows > .row,
+.jobs > .job {
+  border-bottom: 0;
+}
+/* Colour only: a row set aside keeps its hatching (.row.omit's background-image). Under :where():
+   hovered and picked win over the stripes. */
+.rows > .row:where(:nth-child(odd of .row)),
+.jobs > .job:where(:nth-child(odd of .job)) {
+  background-color: var(--stripe-a);
+}
+.rows > .row:where(:nth-child(even of .row)),
+.jobs > .job:where(:nth-child(even of .job)) {
+  background-color: var(--stripe-b);
+}
+.rows > .row:is(:hover, .hov),
+.jobs > .job:is(:hover, .hov) {
+  background-color: var(--row-hover);
+}
+.rows > .row.sel,
+.jobs > .job.sel {
+  background-color: var(--t1);
 }
 .live {
   display: inline-flex;
@@ -2215,7 +2290,7 @@ body.out-open .scrim {
 }
 .vtab[aria-selected="true"] {
   background: var(--box-2);
-  color: #fff;
+  color: var(--text);
 }
 [data-ui="light"] .vtab[aria-selected="true"] {
   color: var(--text);
@@ -2229,7 +2304,7 @@ body.out-open .scrim {
   padding: 0 var(--sp-2);
   border-radius: var(--r-l);
   background: var(--line-3);
-  color: #fff;
+  color: var(--text);
   font-size: var(--fs-xs);
   line-height: 15px;
   text-align: center;
@@ -2239,15 +2314,6 @@ body.out-open .scrim {
 }
 .pbody {
   padding: var(--sp-7);
-}
-.vrow {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  flex-wrap: wrap;
-}
-.vrow .sp {
-  flex: 1;
 }
 .vro {
   display: inline-flex;
@@ -2287,7 +2353,7 @@ body.out-open .scrim {
   font-size: var(--fs-s);
 }
 .anchor > .menu {
-  max-height: 60vh;
+  max-height: calc(100vh - 16px);
   overflow: auto;
 }
 .dept .extra {
@@ -2391,19 +2457,22 @@ button.assign:hover {
      its meta says (each row is its own grid). */
   grid-template-columns: auto minmax(0, 1fr) calc(170px * var(--scale)) calc(220px * var(--scale));
   gap: var(--sp-7);
+  /* Centred: its icon, its name, its bar's two lines (the bar, its frames), its meta. Its name's
+     column keeps two lines' room: the step's words, folded at rest (a mouse), push the name up on
+     hover -- the row never changes height. */
   align-items: center;
+  --jl: calc(20px * var(--scale)); /* a first line's height: the icon's */
   padding: var(--sp-6) var(--sp-7);
   border-bottom: 1px solid var(--row-hover);
   cursor: pointer;
+  position: relative; /* its rail when picked (.job.sel::before) */
 }
 .jobs > .job:last-child {
   border-bottom: 0;
 }
-.job:hover {
+.job:hover,
+.job.hov {
   background: var(--row-hover);
-}
-.job.sel {
-  background: var(--row-sel);
 }
 .jt {
   display: flex;
@@ -2411,8 +2480,15 @@ button.assign:hover {
   min-width: 0;
   gap: var(--sp-1);
 }
+.job .jt {
+  justify-content: center;
+  gap: 0; /* the step's words' padding instead: folded with them */
+  align-self: stretch;
+  min-height: calc(var(--jl) + var(--sp-1) + var(--fs-s) * 1.35); /* its name, the step's words */
+}
 .job .f {
   font: 500 var(--fs) var(--mono);
+  line-height: var(--jl);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2420,11 +2496,13 @@ button.assign:hover {
 .job .s {
   color: var(--text-2);
   font-size: var(--fs-s);
+  padding-top: var(--sp-1);
 }
 .job .s .tag {
   margin-left: var(--sp-3); /* Render here: local, viewport */
 }
 .job .meta {
+  line-height: var(--jl);
   color: var(--text-3);
   font-size: var(--fs-s);
   text-align: right;
@@ -2463,23 +2541,23 @@ button.assign:hover {
 .jst {
   width: calc(20px * var(--scale));
   height: calc(20px * var(--scale));
-  border-radius: 50%;
-  display: inline-grid;
-  place-items: center;
+  display: inline-block;
   flex: none;
   vertical-align: middle;
 }
-.jst svg.i {
-  width: 12px;
-  height: 12px;
-  fill: #151515;
-  color: #151515;
+.jst > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
-/* The play triangle: smaller, and pushed right to its optical centre. */
-.jst.running svg.i {
-  width: 9px;
-  height: 9px;
-  transform: translateX(1px);
+.jst use {
+  fill: var(--on-st);
+  color: var(--on-st);
+}
+/* The outliner's: 16 px. */
+.tree .jst {
+  width: 16px;
+  height: 16px;
 }
 @container main (max-width:640px) {
   .job {
@@ -2517,13 +2595,6 @@ button.assign:hover {
   align-items: center;
   gap: var(--sp-4);
   flex-wrap: wrap;
-}
-.gbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-  flex-wrap: wrap;
-  padding: var(--sp-1) var(--sp-2);
 }
 .nodes.graph {
   align-items: flex-start;
@@ -2565,7 +2636,7 @@ button.assign:hover {
   bottom: auto;
   width: max-content;
   max-width: calc(100vw - 16px);
-  max-height: min(60vh, 420px);
+  max-height: calc(100vh - 16px); /* placeMenu(): the room on its side */
   overflow: auto;
 }
 .btn.play {
@@ -2626,7 +2697,31 @@ button.assign:hover {
   height: 100%;
   object-fit: contain;
 }
+/* Depth, as the timeline's: a shadow inside its edge -- under the picture (the video, the thumbnail), on
+   the ground around it. A video shown: that ground plain, as the video's own was (no dots). */
+.w-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 2px 10px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+.w-stage > img,
+.w-stage > .pv {
+  z-index: 1;
+}
+#wide .w-stage > .pv {
+  background: none; /* over .stage .pv's: the shadow shows past the picture */
+}
+.w-stage:has(> .pv) {
+  background-image: none;
+}
 .w-stage .hud {
+  z-index: 2;
   position: absolute;
   left: 12px;
   top: 10px;
@@ -2669,26 +2764,52 @@ button.assign:hover {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  flex-wrap: wrap;
   flex: none;
 }
-.w-tp .sp {
-  flex: 1;
+/* Left, two lines: the transport, then the version (A) and the comparison (B); right, the strip
+   across both. */
+.w-ctl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  flex: none; /* the strip narrows (it scrolls), not these */
+}
+.w-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.w-vab {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 .bigf {
   font: 600 calc(22px * var(--scale)) var(--mono);
   font-variant-numeric: tabular-nums;
   min-width: 4.5ch;
 }
+/* The strip: on the transport's line, at its right, narrowing (it scrolls) before it goes to the
+   next line -- A / B beside the version took its room, it fell under them on the left. Its
+   thumbnails pushed right (an auto margin: a scroll box keeps its start reachable); faded at an
+   edge where more are hidden (--fl / --fr, stripFade()). */
 .strip {
   display: flex;
   gap: var(--sp-3);
   align-items: flex-end;
   overflow-x: auto;
+  flex: 1 1 calc(220px * var(--scale));
+  min-width: 0;
   max-width: min(52vw, 640px);
+  margin-left: auto;
   padding-bottom: var(--sp-1);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0px), #000 calc(100% - var(--fr, 0px)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0px), #000 calc(100% - var(--fr, 0px)), transparent 100%);
 }
 .strip > .faint {
+  margin-left: auto;
   align-self: center;
   font-size: var(--fs-s);
   margin-right: var(--sp-2);
@@ -2716,6 +2837,43 @@ button.assign:hover {
 }
 .strip .thumb {
   width: 100%;
+}
+/* A block of shots, framed together: its first shot as a file's, the others smaller, its whole
+   name above them while one of its shots is watched or the block hovered (its room kept). */
+.strip .blk {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-1);
+  border-radius: var(--r-l);
+  background: var(--box);
+}
+.strip .blk .br {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.strip .blk .bn {
+  padding: var(--sp-1) var(--sp-2) 0;
+  font: 10.5px var(--mono);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.strip .blk:not(.on):not(:hover):not(.hov) .bn {
+  visibility: hidden;
+}
+.strip .blk .bs {
+  display: flex;
+  gap: var(--sp-1);
+  padding-right: var(--sp-1);
+}
+.strip .blk .bs button {
+  width: calc(64px * var(--scale));
+}
+.strip .blk button:hover {
+  background: var(--box-2);
 }
 .strip .fn {
   display: flex;
@@ -2821,7 +2979,7 @@ button.assign:hover {
   padding: 1px var(--sp-3);
   border-radius: var(--r);
   background: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
   font: 700 10.5px/17px var(--mono);
 }
 .ft.rg {
@@ -2899,22 +3057,15 @@ button.assign:hover {
     aspect-ratio: var(--ar, 16/9);
     max-height: 70vh;
   }
+  .w-tp {
+    flex-wrap: wrap;
+  }
   .strip {
     max-width: 100%;
     width: 100%;
   }
 }
 /* Breakdown */
-.sbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-6);
-  flex-wrap: wrap;
-  padding: 0 var(--sp-2);
-}
-.sbar .faint {
-  font-size: var(--fs-s);
-}
 .sf {
   position: relative;
   display: flex;
@@ -2962,7 +3113,7 @@ button.assign:hover {
 /* A bar's words black, each on a white see-through pill over the bar, blurring what's under it: readable whatever the share. */
 .sf .v,
 .sf .lab {
-  color: #151515;
+  color: var(--on-st);
   padding: 1px var(--sp-4);
   border-radius: 999px;
   line-height: 1.3;
@@ -2974,9 +3125,12 @@ button.assign:hover {
   font-weight: 500;
   margin-left: calc(-1 * var(--sp-2));
 }
+/* The blur on the pill itself: on its ::before (a layer of the pill's own), it saw nothing to blur. */
 .sf .v,
 .sf .lab {
   z-index: 0;
+  -webkit-backdrop-filter: blur(var(--blur));
+  backdrop-filter: blur(var(--blur));
 }
 .sf .v::before,
 .sf .lab::before {
@@ -2985,20 +3139,36 @@ button.assign:hover {
   inset: 0;
   border-radius: inherit;
   background: rgba(255, 255, 255, 0.55);
-  -webkit-backdrop-filter: blur(var(--blur));
-  backdrop-filter: blur(var(--blur));
   z-index: -1;
 }
 
-#quick > .dim {
+/* Breakdown: what a cell's bar says, its colours (in the filters' place). */
+#quick > .join:has([data-sview]),
+.slg {
+  flex: none; /* the hint gives way, not these */
+}
+.slg {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  color: var(--text-2);
+  font-size: var(--fs-s);
   white-space: nowrap;
 }
-.sx-hint {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.slg i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: var(--sp-3);
+  border-radius: var(--r-s);
+  vertical-align: -1px;
+}
+.slg i.todo {
+  background: var(--field);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+#quick > .sp {
+  flex: 1;
 }
 
 .stab {
@@ -3085,14 +3255,6 @@ button.assign:hover {
 .node.fold .nh {
   border-radius: var(--r-l);
 }
-.gcol {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-8);
-  width: calc(250px * var(--scale));
-  position: relative;
-  z-index: 1;
-}
 .gcap {
   color: var(--text-3);
   font-size: var(--fs-s);
@@ -3165,7 +3327,7 @@ button.assign:hover {
 }
 .ft.rg {
   background: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.28);
 }
 .w-side {
@@ -3246,7 +3408,7 @@ button.assign:hover {
   padding: 0 var(--sp-2);
   border-radius: var(--r-l);
   background: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
   font-size: var(--fs-xs);
   line-height: 15px;
 }
@@ -3290,6 +3452,28 @@ button.assign:hover {
 .newsi small {
   color: var(--text-3);
 }
+.pop.news h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+/* A line and its cross: the cross at the right, seen on hover. */
+.newsr {
+  position: relative;
+}
+.newsr .newsi {
+  padding-right: calc(var(--u) + var(--sp-4));
+}
+.newsr .newsx {
+  position: absolute;
+  right: var(--sp-2);
+  bottom: var(--sp-2);
+  opacity: 0;
+}
+.newsr:hover .newsx,
+.newsr .newsx:focus-visible {
+  opacity: 1;
+}
 .check {
   display: inline-flex;
   align-items: center;
@@ -3307,7 +3491,10 @@ button.assign:hover {
   width: min(320px, calc(100vw - 16px));
   padding: var(--sp-7);
   border-radius: var(--r-xl);
-  background: var(--overlay);
+  /* Glass, as the menus: it was the dialogs' veil (--overlay), see-through with no blur. */
+  background: var(--menu);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
+  backdrop-filter: blur(var(--blur)) saturate(120%);
   border: 1px solid var(--sel);
   box-shadow: 0 12px 40px var(--shadow);
   display: flex;
@@ -3519,6 +3706,42 @@ button.assign:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Background work (Update links, pushes): under way, its spinner; ended, ✓ or ✕. */
+.statusbar .bgt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 40vw;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.statusbar .bgt svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.statusbar .bgt.ok {
+  color: var(--text-2);
+}
+.statusbar .bgt.bad {
+  color: var(--rtk-t);
+}
+.statusbar .bgt .spin {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  animation: bgspin 0.9s linear infinite;
+}
+@keyframes bgspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .toast {
   position: fixed;
   left: 50%;
@@ -3529,7 +3752,7 @@ button.assign:hover {
   padding: var(--sp-5) var(--sp-7);
   border-radius: var(--r-l);
   background: var(--ok);
-  color: #fff;
+  color: var(--on-state);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 /* The live pill: Blender busy, or not answering. */
@@ -3623,7 +3846,7 @@ button.assign:hover {
   height: 164px;
   padding: var(--sp-3);
   border-radius: var(--r);
-  background: #fff;
+  background: var(--qr-paper);
 }
 .sh-qr svg {
   display: block;
@@ -3639,6 +3862,13 @@ button.assign:hover {
 }
 .sh-info p {
   margin: 0;
+}
+.sh-off {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-l);
+  background: var(--sunk);
+  color: var(--text-2);
 }
 .sh-form {
   display: flex;
@@ -3715,7 +3945,7 @@ button.assign:hover {
 }
 [aria-checked="true"] > .tg::after {
   transform: translateX(calc(12px * var(--scale)));
-  background: #fff;
+  background: var(--on-sel);
 }
 .swi {
   display: flex;
@@ -3806,7 +4036,8 @@ button.assign:hover {
   padding: var(--sp-6);
   background: var(--area);
   border-radius: var(--r-xl);
-  overflow: hidden;
+  /* Not hidden: the header's tab reaches out of it, up to the header. */
+  overflow: visible;
 }
 #wide.full .w-main {
   display: contents;
@@ -3890,6 +4121,9 @@ button.assign:hover {
   grid-column: 1;
   justify-self: start;
   align-self: start;
+  /* Hung from the header it shows and hides: from its bottom edge, across the gap and the area's padding;
+     the header hidden, from the screen's top edge. */
+  margin-top: calc(-1 * (var(--sp-6) + var(--gap)));
   margin-left: var(--sp-6);
   z-index: 3;
   width: calc(32px * var(--scale));
@@ -3899,16 +4133,15 @@ button.assign:hover {
 #wide.full.no-head .w-head {
   display: none;
 }
-/* Folded / hidden: their tab at the screen's edge, not the inner area's. */
+#wide.full.no-head .w-htab {
+  margin-top: calc(-1 * (var(--sp-6) + max(var(--sp-3), env(safe-area-inset-top, 0px))));
+}
+/* The panel folded: its tab at the screen's edge. The header's stays on the area's top edge, shown or
+   hidden: the area moves up into the header's place. */
 #wide.full.no-side .w-tab {
   position: fixed;
   right: 0;
   top: calc(96px * var(--scale));
-}
-#wide.full.no-head .w-htab {
-  position: fixed;
-  top: 0;
-  left: calc(var(--sp-3) + 2 * var(--sp-6));
 }
 /* Full screen keeps the strip and the long words out. */
 #wide.full .strip,
@@ -3944,7 +4177,6 @@ html.vv.is-mob #mob {
 }
 /* The keyboard open: no footer (the room goes to what's being written). */
 html.kb .statusbar,
-html.kb .m-foot,
 html.kb .m-nav {
   display: none !important;
 }
@@ -4265,7 +4497,7 @@ html.kb .m-nav {
 .act .ot-tip i.dm {
   width: 7px;
   height: 7px;
-  border-radius: 1px;
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   transform: rotate(45deg);
   margin: 0 var(--sp-4) 0 var(--sp-6);
 }
@@ -4372,7 +4604,7 @@ html.kb .m-nav {
   height: 12px;
   margin-top: 6px;
   transform: rotate(45deg);
-  border-radius: 2px;
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   background: var(--st-todo);
   position: relative;
   z-index: 1;
@@ -4404,10 +4636,31 @@ html.kb .m-nav {
   gap: var(--sp-4);
   flex-wrap: wrap;
 }
+/* Its date: on the name's line, against the right. */
+.vh .vat {
+  margin-left: auto;
+  font-size: var(--fs-s);
+}
 .vm {
   font-size: var(--fs-s);
   color: var(--text-2);
 }
+/* What changed in a version, said when it was made: its words, quoted. */
+.vm.vnote {
+  color: var(--text);
+  font-style: italic;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.vm.vnote::before {
+  content: '« ';
+  color: var(--text-3);
+}
+.vm.vnote::after {
+  content: ' »';
+  color: var(--text-3);
+}
+
 .vm.bad {
   color: var(--rtk-t);
   display: flex;
@@ -4460,6 +4713,34 @@ html.kb .m-nav {
   border-bottom: 1px solid var(--line);
   min-width: 0;
 }
+button.mn-h {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.mn-h:hover {
+  background: var(--row-hover);
+}
+/* A name to click inside a line: the text's own look, underlined on hover. */
+.lnk {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 2px;
+}
+.lnk:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
 .mn-h b {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4488,9 +4769,16 @@ html.kb .m-nav {
   cursor: pointer;
   min-width: 0;
 }
-.mn-f:hover:not([disabled]),
-.mn-w:hover {
+.mn-f:hover:not([disabled]) {
   background: var(--row-hover);
+}
+/* The file's name, and under it "not saved yet". */
+.mn-fn {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--sp-2) 0;
+  line-height: 1.3;
 }
 .mn-f .mono {
   overflow: hidden;
@@ -4499,12 +4787,27 @@ html.kb .m-nav {
 }
 .mn-w {
   color: var(--text-2);
-  margin-top: var(--sp-2);
+  cursor: default;
+}
+.mn-h .tag {
+  flex: none;
+}
+.mn-act {
+  display: flex;
+  margin-top: var(--sp-3);
+}
+.grp-h .mh-farm {
+  font-size: var(--fs-s);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mn-w .jst {
   width: 14px;
   height: 14px;
 }
+
 
 /* Live › the first read under way: a line along the top, what's read so far. */
 #readbar {
@@ -4556,7 +4859,7 @@ html.kb .m-nav {
   width: 7px;
   height: 7px;
   margin: 0 var(--sp-3) 1px 1px;
-  border-radius: 1px;
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   transform: rotate(45deg);
   vertical-align: middle;
 }
@@ -4568,6 +4871,14 @@ html.kb .m-nav {
 }
 .vm .vk.val {
   background: var(--st-val);
+}
+/* Kept from an earlier stable: its diamond hollow, its words greyed. */
+.vm.kept {
+  color: var(--text-3);
+}
+.vm.kept .vk.val {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--st-val);
 }
 /* Render history: which machine wrote which frame. */
 /* Which machine rendered a frame: the answer, then each machine's frames. */
@@ -4601,6 +4912,14 @@ html.kb .m-nav {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.farmc .fj[data-gojob] {
+  cursor: pointer;
+  border-radius: var(--r);
+}
+.farmc .fj[data-gojob]:hover {
+  color: var(--text);
+  text-decoration: underline;
 }
 /* Failed, outdated: the retake's orange on the icon, the words as the others. */
 #list .farmc .fj svg.i {
@@ -4690,33 +5009,41 @@ html.kb .m-nav {
   .nt [data-nedit],
   .nt [data-unreply],
   .wnr .wfx,
-  .rvg .subd {
+  .rvg .subd,
+  .job .meta,
+  .grp-h .bar .bl {
     transition:
       opacity calc(0.18s * var(--hk, 1)) ease,
       visibility calc(0.18s * var(--hk, 1));
   }
   /* The list: Progress's figures, the Renders column's words (its icons and bar stay). */
-  .row:not(:hover):not(.sel) .bars .bar span,
-  .row:not(:hover):not(.sel) .farmc .fj .w,
-  /* Breakdown: a bar's figure (its pill), on the bar hovered -- the bar says it at rest. */
-  .sf:not(:hover) .v,
+  .row:not(:hover):not(.hov):not(.sel) .bars .bar span,
+  .row:not(:hover):not(.hov):not(.sel) .farmc .fj .w,
+  /* The head's figures: a bar's figure (its pill), on the bar hovered -- the bar says it at rest. The
+     Breakdown's cells keep theirs: their bar says the states, the figure Done. */
+  .kpi .sf:not(:hover):not(.hov) .v,
   /* A sequence's header: Play the sequence, + shot. */
-  .grp-h:not(:hover):not(:focus-within) .btn.play,
-  .grp-h:not(:hover):not(:focus-within) [data-plan],
+  .grp-h:not(:hover):not(.hov):not(:focus-within) .btn.play,
+  .grp-h:not(:hover):not(.hov):not(:focus-within) [data-plan],
   /* The outliner: a sequence's figure, a file's notes counted. */
-  .tree li.seq:not(:hover) .pc,
-  .tree li[data-n]:not(:hover):not(.sel) .pc,
+  .tree li.seq:not(:hover):not(.hov) .pc,
+  .tree li[data-n]:not(:hover):not(.hov):not(.sel) .pc,
   /* The detail's departments: their buttons. */
-  .dept:not(:hover):not(:focus-within) .acts,
-  .dept:not(:hover):not(:focus-within) .extra .anchor:has(.assign.none),
-  .dept:not(:hover):not(:focus-within) .extra .btn:not([aria-pressed="true"]),
+  .dept:not(:hover):not(.hov):not(:focus-within) .acts,
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra .anchor:has(.assign.none),
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra .btn:not([aria-pressed="true"]),
   /* A note: its pen, a reply's take-back. */
-  .nt:not(:hover):not(:focus-within) [data-nedit],
-  .nt:not(:hover):not(:focus-within) [data-unreply],
+  .nt:not(:hover):not(.hov):not(:focus-within) [data-nedit],
+  .nt:not(:hover):not(.hov):not(:focus-within) [data-unreply],
   /* Watch large: a note's check, unless ticked. */
-  .wnr:not(:hover):not(:focus-within) .wfx:not([aria-pressed="true"]),
+  .wnr:not(:hover):not(.hov):not(:focus-within) .wfx:not([aria-pressed="true"]),
   /* In a review's box: each note's own time (the box's head has the date). */
-  .rvg .nt:not(:hover) .subd {
+  .rvg .nt:not(:hover):not(.hov) .subd,
+  /* The Farm tab: a job's machines, who sent it and when, and its step's words (its group and its
+     icon say its state) -- its bar and time left stay. */
+  .job:not(:hover):not(.hov):not(.sel) .meta,
+  /* A sequence's header: its bars' names (DONE / VALIDATED), as its buttons. */
+  .grp-h:not(:hover):not(.hov):not(:focus-within) .bar .bl {
     opacity: 0;
     visibility: hidden;
     --hk: 0.4;
@@ -4732,15 +5059,33 @@ html.kb .m-nav {
       opacity calc(0.18s * var(--hk, 1)) ease,
       margin calc(0.22s * var(--hk, 1)) ease;
   }
-  .dept:not(:hover):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])),
-  .nt:not(:hover):not(:focus-within) .f {
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])),
+  .nt:not(:hover):not(.hov):not(:focus-within) .f {
     max-height: 0;
     opacity: 0;
     overflow: hidden;
     --hk: 0.4;
   }
-  .dept:not(:hover):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])) {
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])) {
     margin-top: calc(-1 * var(--sp-2));
+  }
+  /* The Farm tab: a job's step's words (its group and its icon say its state), folded -- its name,
+     centred at rest, pushed up on hover; the row's height kept (.job .jt). */
+  .job .s {
+    max-height: calc(var(--fs-s) * 1.35 + var(--sp-1));
+    overflow: hidden;
+    transition:
+      max-height calc(0.22s * var(--hk, 1)) ease,
+      padding calc(0.22s * var(--hk, 1)) ease,
+      opacity calc(0.18s * var(--hk, 1)) ease,
+      visibility calc(0.18s * var(--hk, 1));
+  }
+  .job:not(:hover):not(.hov):not(.sel) .s {
+    max-height: 0;
+    padding-top: 0;
+    opacity: 0;
+    visibility: hidden;
+    --hk: 0.4;
   }
   /* Narrowed to nothing too, not only faded: a card's buttons beside its words, a note's pen in its
      header -- left in place, they'd push the words to a second line. */
@@ -4756,22 +5101,22 @@ html.kb .m-nav {
       opacity calc(0.18s * var(--hk, 1)) ease,
       visibility calc(0.18s * var(--hk, 1));
   }
-  .dept:not(:hover):not(:focus-within) .acts,
-  .nt:not(:hover):not(:focus-within) [data-nedit] {
+  .dept:not(:hover):not(.hov):not(:focus-within) .acts,
+  .nt:not(:hover):not(.hov):not(:focus-within) [data-nedit] {
     max-width: 0;
     overflow: hidden;
     --hk: 0.4;
   }
   /* Beside the words still shown (waiting, to redo): Assign and Mark done take no room, their gap too. */
-  .dept:not(:hover):not(:focus-within) .extra .anchor:has(.assign.none),
-  .dept:not(:hover):not(:focus-within) .extra .btn:not([aria-pressed="true"]) {
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra .anchor:has(.assign.none),
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra .btn:not([aria-pressed="true"]) {
     max-width: 0;
     overflow: hidden;
     padding-inline: 0;
     border-width: 0;
     margin-right: calc(-1 * var(--sp-5));
   }
-  .nt:not(:hover):not(:focus-within) .f {
+  .nt:not(:hover):not(.hov):not(:focus-within) .f {
     margin-top: calc(-1 * var(--sp-3));
   }
 }
@@ -4803,4 +5148,69 @@ html.kb .m-nav {
   background: transparent;
   border-radius: 0;
   border-top: 1px solid var(--line-2);
+}
+
+/* Scroll fades (scrollFades()): laid over a scrolled box's edge while something is hidden past it. */
+.sfade {
+  position: absolute;
+  z-index: 5;
+  display: block;
+  height: calc(64px * var(--scale));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s;
+  /* An eased ramp (about t^2.2), not a straight one: the light end melts in, no edge where it starts. */
+  --ramp: color-mix(in srgb, var(--fg, var(--area)) 0%, transparent) 0%, color-mix(in srgb, var(--fg, var(--area)) 0.6%, transparent) 10%, color-mix(in srgb, var(--fg, var(--area)) 2.8%, transparent) 20%, color-mix(in srgb, var(--fg, var(--area)) 7%, transparent) 30%, color-mix(in srgb, var(--fg, var(--area)) 13%, transparent) 40%, color-mix(in srgb, var(--fg, var(--area)) 22%, transparent) 50%, color-mix(in srgb, var(--fg, var(--area)) 32%, transparent) 60%, color-mix(in srgb, var(--fg, var(--area)) 46%, transparent) 70%, color-mix(in srgb, var(--fg, var(--area)) 61%, transparent) 80%, color-mix(in srgb, var(--fg, var(--area)) 79%, transparent) 90%, color-mix(in srgb, var(--fg, var(--area)) 100%, transparent) 100%;
+}
+.sfade.b {
+  background: linear-gradient(to bottom, transparent, var(--fg, var(--area)));
+  background: linear-gradient(to bottom, var(--ramp));
+}
+.sfade.t {
+  height: calc(36px * var(--scale));
+  background: linear-gradient(to top, transparent, var(--fg, var(--area)));
+  background: linear-gradient(to top, var(--ramp));
+}
+.sfade.on {
+  opacity: 1;
+}
+.is-mob .sfade,
+#wide.full .sfade {
+  display: none; /* full screen: a glass panel over the video, no ground to fade to */
+}
+
+/* New shot (Blender's New shot): a row per shot -- its number after the project's prefix, its
+   start --, then Add and the end; the name made and what clashes under the fields. */
+.pl-sh {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.pl-h,
+.pl-r {
+  display: grid;
+  grid-template-columns: 1fr 1fr var(--h-sm);
+  gap: var(--sp-3);
+  align-items: center;
+}
+.pl-h {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.pl-r .field input {
+  min-width: 0;
+  width: 100%;
+}
+.pl-r .btn.tool {
+  justify-self: start;
+}
+#pl-live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+#pl-live .pl-w {
+  align-self: flex-start;
+  margin: 0;
+  white-space: normal;
 }
