@@ -349,6 +349,7 @@ function mSheet() {
             `<button class="m-opt" data-mgo="${x.n}"><span class="dt" style="background:var(${IC[x.k]})"></span><span class="lbl"><span class="mono">${esc(x.n)}</span> · ${esc(x.h)}<small>${esc(x.x)} · ${x.at}</small></span></button>`
         ).join('')
       : '<p class="m-hint">' + T('Nothing new since the page opened.') + '</p>';
+    if (NEWS.length) foot = `<button class="btn m-wide" data-mnewsclr>${T('Clear all')}</button>`;
   }
   if (k === 'search') {
     t = T('Search everything');
@@ -532,6 +533,12 @@ $('#mob').addEventListener('click', e => {
   if (q('[data-tdcopy]')) {
     const c = todoText();
     copyText(c.text, T('Copied: {n} file|Copied: {n} files', { n: c.n }));
+    return;
+  }
+  if ((x = q('[data-mnewsclr]'))) {
+    NEWS.length = 0;
+    newsSeen = 0;
+    mRender();
     return;
   }
   if ((x = q('[data-mgo]'))) {

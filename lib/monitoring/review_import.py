@@ -207,6 +207,10 @@ def _action(raw) -> dict | None:
             a.update(sequence=_text(raw.get("sequence")), shot=_text(raw.get("shot")))
             for k in ("frame_start", "frame_end"):
                 a[k] = int(raw[k]) if str(raw.get(k) or "").isdigit() else None
+            # Each shot's start then the end ("1001-1051-1101"): kept when it fits the shots.
+            tl = _text(raw.get("timeline"))
+            fits = re.fullmatch(r"\d+(-\d+)*", tl) and len(tl.split("-")) == len(a["shot"].split("-")) + 1
+            a["timeline"] = tl if fits else ""
             return a if a["sequence"].isdigit() and re.fullmatch(r"\d+(-\d+)*", a["shot"]) else None
         if kind == "asset":
             a.update(prefix=_text(raw.get("prefix")).lower(), name=sanitize_name(_text(raw.get("name"))))
@@ -762,6 +766,8 @@ def create_rows(review: dict) -> dict:
         if a["kind"] == "shot":
             row.update(sequence=a["sequence"], shot=a["shot"])
             row.update({k: str(a[k]) for k in ("frame_start", "frame_end") if a[k] is not None})
+            if a.get("timeline"):
+                row["timeline"] = a["timeline"]
         else:
             row.update(prefix=a["prefix"], name=a["name"])
         out[a["kind"]].append(row)

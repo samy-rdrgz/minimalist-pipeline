@@ -118,7 +118,10 @@ PV.addEventListener('ended', () => {
     mEnd();
     return;
   }
-  if (S.seqPlay && S.wide) seqNext();
+  if (!S.wide) return;
+  // At the end, Watch large's choice: the next shot (as Play the sequence), or the same again.
+  if (S.seqPlay) seqNext();
+  else togglePlay();
 });
 const tickV = () => {
   if (!PV.paused) {

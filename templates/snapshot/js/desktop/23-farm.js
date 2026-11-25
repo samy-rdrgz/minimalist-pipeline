@@ -322,7 +322,12 @@ function machinesHTML() {
   const wk = w =>
     !w
       ? `<span class="faint">${T('not a worker')}</span>`
-      : `<button class="mn-w" data-wk="${w.uuid}">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: esc(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></button>`;
+      : `<span class="mn-w">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: fileLink(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></span>`;
+  // The file it renders: a click opens that file (its detail), not the machine's.
+  const fileLink = f => {
+    const n = name(f);
+    return n ? `<button class="lnk mono" data-sgofile="${esc(n)}" data-stab="plan" title="${T('Open {name}', { name: esc(n) })}">${esc(f)}</button>` : esc(f);
+  };
   // Its head: the farm itself -- who hosts it, its monitor, what it does now -- and its switch.
   const farmNow = farmUp()
     ? `<span class="faint mh-farm">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · ${T('monitor {state}', { state: st })} · ${T('Now: {what}', { what: hostNow(me.host_now) })}</span><span style="flex:1"></span>${monitorBtn('sm')}`
@@ -333,7 +338,7 @@ function machinesHTML() {
         ? `<div class="mnodes">${ms
             .map(
               // Its worker first (what it renders), then its files open; none open: nothing said.
-              m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''} ${m.me ? 'me' : ''}"><div class="mn-h">${ic('b-user')}<b>${esc(m.label)}</b>${m.me && m.label !== T('This machine') ? `<span class="tag">${T('this machine')}</span>` : ''}</div>
+              m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''} ${m.me ? 'me' : ''}"><${m.worker ? `button class="mn-h" data-wk="${m.worker.uuid}" title="${T('Its detail')}"` : 'div class="mn-h"'}>${ic('b-user')}<b>${esc(m.label)}</b>${m.me && m.label !== T('This machine') ? `<span class="tag">${T('this machine')}</span>` : ''}</${m.worker ? 'button' : 'div'}>
         <div class="mn-b">${wk(m.worker)}${m.files
           .map(f => {
             const n = name(f.file);

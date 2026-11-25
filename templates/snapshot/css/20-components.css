@@ -3386,6 +3386,28 @@ button.assign:hover {
 .newsi small {
   color: var(--text-3);
 }
+.pop.news h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+/* A line and its cross: the cross at the right, seen on hover. */
+.newsr {
+  position: relative;
+}
+.newsr .newsi {
+  padding-right: calc(var(--u) + var(--sp-4));
+}
+.newsr .newsx {
+  position: absolute;
+  right: var(--sp-2);
+  bottom: var(--sp-2);
+  opacity: 0;
+}
+.newsr:hover .newsx,
+.newsr .newsx:focus-visible {
+  opacity: 1;
+}
 .check {
   display: inline-flex;
   align-items: center;
@@ -4568,6 +4590,34 @@ html.kb .m-nav {
   border-bottom: 1px solid var(--line);
   min-width: 0;
 }
+button.mn-h {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.mn-h:hover {
+  background: var(--row-hover);
+}
+/* A name to click inside a line: the text's own look, underlined on hover. */
+.lnk {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 2px;
+}
+.lnk:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
 .mn-h b {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4596,8 +4646,7 @@ html.kb .m-nav {
   cursor: pointer;
   min-width: 0;
 }
-.mn-f:hover:not([disabled]),
-.mn-w:hover {
+.mn-f:hover:not([disabled]) {
   background: var(--row-hover);
 }
 /* The file's name, and under it "not saved yet". */
@@ -4615,6 +4664,7 @@ html.kb .m-nav {
 }
 .mn-w {
   color: var(--text-2);
+  cursor: default;
 }
 .mn-h .tag {
   flex: none;
@@ -4731,6 +4781,14 @@ html.kb .m-nav {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.farmc .fj[data-gojob] {
+  cursor: pointer;
+  border-radius: var(--r);
+}
+.farmc .fj[data-gojob]:hover {
+  color: var(--text);
+  text-decoration: underline;
 }
 /* Failed, outdated: the retake's orange on the icon, the words as the others. */
 #list .farmc .fj svg.i {
@@ -4988,4 +5046,40 @@ html.kb .m-nav {
 .is-mob .sfade,
 #wide.full .sfade {
   display: none; /* full screen: a glass panel over the video, no ground to fade to */
+}
+
+/* New shot (Blender's New shot): a row per shot -- its number after the project's prefix, its
+   start --, then Add and the end; the name made and what clashes under the fields. */
+.pl-sh {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.pl-h,
+.pl-r {
+  display: grid;
+  grid-template-columns: 1fr 1fr var(--h-sm);
+  gap: var(--sp-3);
+  align-items: center;
+}
+.pl-h {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.pl-r .field input {
+  min-width: 0;
+  width: 100%;
+}
+.pl-r .btn.tool {
+  justify-self: start;
+}
+#pl-live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+#pl-live .pl-w {
+  align-self: flex-start;
+  margin: 0;
+  white-space: normal;
 }

@@ -382,6 +382,8 @@ def _farm_status(job: dict) -> dict:
     which render (its folder once set up, v003_001, else its .blend's version) and shot."""
     return {
         "state": job["state"],
+        # Its id: a click on it opens it in the Farm tab.
+        "id": job.get("job_id") or "",
         "text": _FARM_TEXT.get(job["state"], job["text"]),
         "tip": job["text"],
         "version": job.get("version") or "",

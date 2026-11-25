@@ -105,21 +105,47 @@ function v6Click(t) {
     return true;
   }
   const pd = t.closest('[data-pld]');
-  if (pd) {
-    pd.setAttribute('aria-pressed', pd.getAttribute('aria-pressed') !== 'true');
+  if (pd && PL) {
+    PL.deps.has(pd.dataset.pld) ? PL.deps.delete(pd.dataset.pld) : PL.deps.add(pd.dataset.pld);
+    pd.setAttribute('aria-pressed', PL.deps.has(pd.dataset.pld));
+    return true;
+  }
+  if (t.closest('[data-pladd]') && PL) {
+    // One more shot after the last: its number +10, its start a step on (Blender's Add).
+    const l = PL.shots[PL.shots.length - 1];
+    PL.shots.push({ n: (l.n || 0) + 10, s: (l.s || 0) + plStep });
+    if (PL.end <= (l.s || 0) + plStep) PL.end = (l.s || 0) + plStep * 2;
+    planDraw();
+    return true;
+  }
+  const pr = t.closest('[data-plrm]');
+  if (pr && PL && PL.shots.length > 1) {
+    PL.shots.splice(+pr.dataset.plrm, 1);
+    planDraw();
+    return true;
+  }
+  const pw = t.closest('[data-planyway]');
+  if (pw && PL) {
+    PL.anyway = !PL.anyway;
+    planLive();
     return true;
   }
   const po = t.closest('[data-plok]');
-  if (po) {
-    const name = $('#pl-n').value.trim();
-    if (!name) return true;
+  if (po && PL) {
+    const [err, warn] = plCheck();
+    if (err.length || (warn.length && !PL.anyway)) return true;
+    const name = plName(),
+      sh = PL.kind === 'shot',
+      ord = [...PL.shots].sort((a, b) => a.n - b.n);
     A.plan({
       name,
-      g: po.dataset.plok,
-      kind: po.dataset.plk,
-      desc: $('#pl-d').value.trim(),
-      deps: [...document.querySelectorAll('[data-pld][aria-pressed=true]')].map(b => b.dataset.pld)
+      g: PL.g,
+      kind: PL.kind,
+      desc: PL.desc.trim(),
+      deps: DEPTS[PL.kind].filter(d => PL.deps.has(d)),
+      ...(sh ? { shots: ord.map(x => x.n), timeline: [...ord.map(x => x.s), PL.end] } : {})
     });
+    PL = null;
     $('#dlg').hidden = true;
     refresh();
     msg(T('{name}: made when your review is imported', { name }));
@@ -433,6 +459,17 @@ document.addEventListener('click', e => {
     renderQuick();
     renderList();
     renderTree();
+    return;
+  }
+  // A file's job, from the list's Renders column: the Farm tab, that job selected.
+  const gj = t.closest('[data-gojob]');
+  if (gj) {
+    S.ws = 'farm';
+    S.quick = null;
+    S.dept = null;
+    S.farmSel = gj.dataset.gojob;
+    renderAll();
+    document.querySelector(`.job[data-job="${CSS.escape(S.farmSel)}"]`)?.scrollIntoView({ block: 'nearest' });
     return;
   }
   const jb = t.closest('[data-job]');
@@ -912,6 +949,11 @@ document.addEventListener('click', e => {
     select(fl.dataset.film, { open: false });
     return;
   }
+  const nx = t.closest('[data-newsx],[data-newsclr]');
+  if (nx) {
+    newsDel(nx.dataset.newsx != null ? +nx.dataset.newsx : null);
+    return;
+  }
   const gf = t.closest('[data-goto-file]');
   if (gf) {
     const n = gf.dataset.gotoFile,
@@ -953,6 +995,12 @@ document.addEventListener('click', e => {
     }
     return;
   }
+  const we = t.closest('[data-wend]');
+  if (we) {
+    S.seqPlay = we.dataset.wend === 'next';
+    renderWide();
+    return;
+  }
   const tp = t.closest('[data-tp]');
   if (tp && !tp.disabled) {
     const k = tp.dataset.tp;
@@ -982,7 +1030,6 @@ document.addEventListener('click', e => {
   if (t.closest('[data-wclose]')) {
     wideFull(false);
     S.wide = false;
-    S.seqPlay = false;
     if (S.playing) togglePlay();
     renderWide();
     renderProps();
@@ -1309,7 +1356,6 @@ document.addEventListener('keydown', e => {
     }
     if (S.wide) {
       S.wide = false;
-      S.seqPlay = false;
       if (S.playing) togglePlay();
       renderWide();
       renderProps();

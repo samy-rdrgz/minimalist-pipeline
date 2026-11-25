@@ -31,6 +31,12 @@ function createOf(p) {
     const part = p.name.split('_')[1] || '';
     o.sequence = digits(p.g || p.name.split('_')[0]);
     o.shot = part.startsWith(sp) ? part.slice(sp.length) : digits(part);
+    // Each shot's start, then the end (Blender's New shot): "1001-1051-1101".
+    if (p.timeline && p.timeline.length) {
+      o.timeline = p.timeline.join('-');
+      o.frame_start = p.timeline[0];
+      o.frame_end = p.timeline[p.timeline.length - 1];
+    }
     if (p.frame_start != null) o.frame_start = p.frame_start;
     if (p.frame_end != null) o.frame_end = p.frame_end;
   } else {
@@ -192,7 +198,13 @@ function fromActions(actions) {
         kind: a.kind === 'shot' ? 'shot' : 'asset',
         desc: a.description || '',
         deps: a.departments || [],
-        assignees: a.assignees || {}
+        assignees: a.assignees || {},
+        ...(a.kind === 'shot'
+          ? {
+              shots: String(a.shot || '').split('-').map(Number),
+              ...(a.timeline ? { timeline: String(a.timeline).split('-').map(Number) } : {})
+            }
+          : {})
       });
       return;
     }

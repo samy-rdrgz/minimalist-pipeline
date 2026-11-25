@@ -3639,6 +3639,28 @@ button.assign:hover {
 .newsi small {
   color: var(--text-3);
 }
+.pop.news h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+/* A line and its cross: the cross at the right, seen on hover. */
+.newsr {
+  position: relative;
+}
+.newsr .newsi {
+  padding-right: calc(var(--u) + var(--sp-4));
+}
+.newsr .newsx {
+  position: absolute;
+  right: var(--sp-2);
+  bottom: var(--sp-2);
+  opacity: 0;
+}
+.newsr:hover .newsx,
+.newsr .newsx:focus-visible {
+  opacity: 1;
+}
 .check {
   display: inline-flex;
   align-items: center;
@@ -4821,6 +4843,34 @@ html.kb .m-nav {
   border-bottom: 1px solid var(--line);
   min-width: 0;
 }
+button.mn-h {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.mn-h:hover {
+  background: var(--row-hover);
+}
+/* A name to click inside a line: the text's own look, underlined on hover. */
+.lnk {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 2px;
+}
+.lnk:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
 .mn-h b {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4849,8 +4899,7 @@ html.kb .m-nav {
   cursor: pointer;
   min-width: 0;
 }
-.mn-f:hover:not([disabled]),
-.mn-w:hover {
+.mn-f:hover:not([disabled]) {
   background: var(--row-hover);
 }
 /* The file's name, and under it "not saved yet". */
@@ -4868,6 +4917,7 @@ html.kb .m-nav {
 }
 .mn-w {
   color: var(--text-2);
+  cursor: default;
 }
 .mn-h .tag {
   flex: none;
@@ -4984,6 +5034,14 @@ html.kb .m-nav {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.farmc .fj[data-gojob] {
+  cursor: pointer;
+  border-radius: var(--r);
+}
+.farmc .fj[data-gojob]:hover {
+  color: var(--text);
+  text-decoration: underline;
 }
 /* Failed, outdated: the retake's orange on the icon, the words as the others. */
 #list .farmc .fj svg.i {
@@ -5241,6 +5299,42 @@ html.kb .m-nav {
 .is-mob .sfade,
 #wide.full .sfade {
   display: none; /* full screen: a glass panel over the video, no ground to fade to */
+}
+
+/* New shot (Blender's New shot): a row per shot -- its number after the project's prefix, its
+   start --, then Add and the end; the name made and what clashes under the fields. */
+.pl-sh {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.pl-h,
+.pl-r {
+  display: grid;
+  grid-template-columns: 1fr 1fr var(--h-sm);
+  gap: var(--sp-3);
+  align-items: center;
+}
+.pl-h {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.pl-r .field input {
+  min-width: 0;
+  width: 100%;
+}
+.pl-r .btn.tool {
+  justify-self: start;
+}
+#pl-live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+#pl-live .pl-w {
+  align-self: flex-start;
+  margin: 0;
+  white-space: normal;
 }
 /* Resizable side panels (desktop, 1200 px and over): drag the edge; past the minimum the panel
    folds away and a small tab under the filter bar brings it back; a double-click: the default width. */
@@ -7202,7 +7296,7 @@ code {
       
        d="m34 622c-1.783333 0-3 1.5-3 3h2c0-.5.283333-1 1-1s1 .5 1 1c0 .24702-.03644.30082-.117188.41016-.08074.10934-.253932.25966-.513671.4707-.519479.42208-1.369141 1.28581-1.369141 2.61914v.5h2v-.5c0-.66667.150338-.67794.630859-1.06836.240261-.19521.567072-.43551.861329-.83398.294256-.39848.507812-.96968.507812-1.59766 0-1.5-1.216667-3-3-3zm-1 8.00009h2v2h-2zm1-10.00009c-3.86007 0-7 3.13991-7 7s3.13993 7 7 7c3.86008 0 7-3.13991 7-7s-3.13992-7-7-7zm0 1c3.31964 0 6 2.68035 6 6s-2.68036 6-6 6c-3.31963 0-6-2.68035-6-6s2.68037-6 6-6z"
        fill="currentColor"
-       transform="matrix(100 0 0 100 -2600.0002 -61900)" /></g></symbol><symbol id="b-render_animation" viewBox="0 0 1700 1700"><g fill="currentColor"><path d="m202 473c-3.86007 0-7 3.13993-7 7s3.13993 7 7 7 7-3.13993 7-7-3.13993-7-7-7zm0 1c1.09865 0 2 .90135 2 2s-.90135 2-2 2-2-.90135-2-2 .90135-2 2-2zm-4 4c1.09865 0 2 .90135 2 2s-.90135 2-2 2-2-.90135-2-2 .90135-2 2-2zm8 0c1.09865 0 2 .90135 2 2s-.90135 2-2 2-2-.90135-2-2 .90135-2 2-2zm-4 1c.54636 0 1 .45364 1 1s-.45364 1-1 1-1-.45364-1-1 .45364-1 1-1zm0 3c1.09865 0 2 .90135 2 2s-.90135 2-2 2-2-.90135-2-2 .90135-2 2-2zm4.96484 4a.50005.50005 0 0 0 -.47265.49219.50005.50005 0 0 0 .50781.50781h.5c.83333 0 1.14655.35353 1.64648.85352a.50005.50005 0 1 0 .70704-.70704c-.49997-.50001-1.18685-1.14648-2.35352-1.14648h-.5a.50005.50005 0 0 0 -.0352 0z" transform="matrix(100 0 0 100 -19400.351 -47200.351)"/></g></symbol><symbol id="b-render_result" viewBox="0 0 1600 1600"><g fill="currentColor" transform="matrix(100 0 0 100 -2599.9969 -49300.003)"><path d="m31.500008 494.00001a.50005.50005 0 0 0 -.5.5v9a.50005.50005 0 0 0 .5.5h9a.50005.50005 0 0 0 .5-.5v-9a.50005.50005 0 0 0 -.5-.5zm.5 1h8v8h-2.051445c.000216-.07153-.016217-.14491-.054024-.21485l-3-5.5c-.08111-.14873-.238867-.2393-.408203-.23437-.16529.005-.314526.10023-.388672.24804l-2.097656 4.19532zm6 1c-.546361 0-1 .45364-1 1 0 .54635.453639 1 1 1 .546362 0 1-.45365 1-1 0-.54636-.453638-1-1-1z"/><path d="m29.492188 495.99219a.50005.50005 0 0 0 -.492188.50781v9a.50005.50005 0 0 0 .5.5h9a.50005.50005 0 1 0 0-1h-8.5v-8.5a.50005.50005 0 0 0 -.507812-.50781zm-2 2a.50005.50005 0 0 0 -.492188.50781v9a.50005.50005 0 0 0 .5.5h9a.50005.50005 0 1 0 0-1h-8.5v-8.5a.50005.50005 0 0 0 -.507812-.50781z" fill-rule="evenodd" opacity=".693"/></g></symbol><symbol id="b-rightarrow" viewBox="0 0 700 1100"><g fill="currentColor"><path d="m410.49414 601.99414a.50005.50005 0 0 0 -.34766.85938l3.64649 3.64648-3.64649 3.64648a.50005.50005 0 1 0 .70704.70704l4-4a.50005.50005 0 0 0 0-.70704l-4-4a.50005.50005 0 0 0 -.35938-.15234z" transform="matrix(100 0 0 100 -40899.645 -60100.058)"/></g></symbol><symbol id="b-sorttime" viewBox="0 0 1300 1600"><g fill="currentColor"><path d="m49.999995 74.995042v.000039 1.12992c0 1.632011.97133 2.853008 2.201172 3.77539l.798828.59961v.5.5l-.798828.599609c-1.229844.92238-2.201172 2.143385-2.201172 3.775391v1.12008h1v-1.120078-.002c.000762-1.244176.698853-2.146212 1.800781-2.972657l1-.75c.125699-.09467.199504-.242991.199219-.400351v-.714844c.000412-.01171.000412-.02346 0-.03518v-.75c.0003-.157377-.07351-.305713-.199219-.40039l-1-.75c-1.10193-.826446-1.800019-1.728471-1.800781-2.972657v-.002-1.131597c-.445129-.0045-.812839.0017-1 .0017zm8-.0024v1.13238c0 1.245239-.698247 2.147709-1.800781 2.974609l-1 .75c-.125713.09468-.199519.243014-.199219.400391v.714843.03516.75c-.0003.157377.07351.305712.199219.40039l1 .75c1.10193.826447 1.800019 1.728481 1.800781 2.972657v1.122033h1v-1.12008c0-1.632006-.969375-2.853011-2.199219-3.775391l-.800781-.59963v-.464844c.000412-.01171.000412-.02344 0-.03516v-.5l.800781-.59961c1.229842-.922378 2.199219-2.143379 2.199219-3.77539v-1.13238z" opacity=".7" transform="matrix(100 0 0 100 -4800.021725 -7299.223717)"/><path d="m49.63916 86.742542c-.676158-.0096-.676158 1.00956 0 1h10c.676158.0096.676158-1.00956 0-1zm.0037-12.997714c-.676158-.0096-.676158 1.00956 0 1h10c.676158.0096.676158-1.00956 0-1z" transform="matrix(100 0 0 100 -4813.014959 -7274.190037)"/></g></symbol><symbol id="b-spreadsheet" viewBox="0 0 1800 1600"><g fill="currentColor"><g enable-background="new" transform="matrix(100 0 0 100 -179500.005 -34700)"><path d="m1796.5 348a.50005.50005 0 0 0 -.5.5v5.5h1v-5h2v-1zm7.5 0v1h7v5h1v-5.5a.50005.50005 0 0 0 -.5-.5zm-8 11v2.5a.50005.50005 0 0 0 .5.5h2.5v-1h-2v-2zm15 0v2h-7v1h7.5a.50005.50005 0 0 0 .5-.5v-2.5z" opacity=".7"/><path d="m1800 348h3v14h-3zm-4 7h16v3h-16z"/></g></g></symbol><symbol id="b-time" viewBox="0 0 16 16"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 1 0 8 1zM7 4.9a1 1 0 0 1 2 0V7h1.3a1 1 0 0 1 0 2H8a1 1 0 0 1-1-1z" fill="currentColor" fill-rule="evenodd"/></symbol><symbol id="b-tria_down" viewBox="0 0 1000 800"><defs
+       transform="matrix(100 0 0 100 -2600.0002 -61900)" /></g></symbol><symbol id="b-render_animation" viewBox="0 0 1700 1700"><g fill="currentColor"><path d="m202 473c-3.86007 0-7 3.13993-7 7s3.13993 7 7 7 7-3.13993 7-7-3.13993-7-7-7zm0 1c1.09865 0 2 .90135 2 2s-.90135 2-2 2-2-.90135-2-2 .90135-2 2-2zm-4 4c1.09865 0 2 .90135 2 2s-.90135 2-2 2-2-.90135-2-2 .90135-2 2-2zm8 0c1.09865 0 2 .90135 2 2s-.90135 2-2 2-2-.90135-2-2 .90135-2 2-2zm-4 1c.54636 0 1 .45364 1 1s-.45364 1-1 1-1-.45364-1-1 .45364-1 1-1zm0 3c1.09865 0 2 .90135 2 2s-.90135 2-2 2-2-.90135-2-2 .90135-2 2-2zm4.96484 4a.50005.50005 0 0 0 -.47265.49219.50005.50005 0 0 0 .50781.50781h.5c.83333 0 1.14655.35353 1.64648.85352a.50005.50005 0 1 0 .70704-.70704c-.49997-.50001-1.18685-1.14648-2.35352-1.14648h-.5a.50005.50005 0 0 0 -.0352 0z" transform="matrix(100 0 0 100 -19400.351 -47200.351)"/></g></symbol><symbol id="b-render_result" viewBox="0 0 1600 1600"><g fill="currentColor" transform="matrix(100 0 0 100 -2599.9969 -49300.003)"><path d="m31.500008 494.00001a.50005.50005 0 0 0 -.5.5v9a.50005.50005 0 0 0 .5.5h9a.50005.50005 0 0 0 .5-.5v-9a.50005.50005 0 0 0 -.5-.5zm.5 1h8v8h-2.051445c.000216-.07153-.016217-.14491-.054024-.21485l-3-5.5c-.08111-.14873-.238867-.2393-.408203-.23437-.16529.005-.314526.10023-.388672.24804l-2.097656 4.19532zm6 1c-.546361 0-1 .45364-1 1 0 .54635.453639 1 1 1 .546362 0 1-.45365 1-1 0-.54636-.453638-1-1-1z"/><path d="m29.492188 495.99219a.50005.50005 0 0 0 -.492188.50781v9a.50005.50005 0 0 0 .5.5h9a.50005.50005 0 1 0 0-1h-8.5v-8.5a.50005.50005 0 0 0 -.507812-.50781zm-2 2a.50005.50005 0 0 0 -.492188.50781v9a.50005.50005 0 0 0 .5.5h9a.50005.50005 0 1 0 0-1h-8.5v-8.5a.50005.50005 0 0 0 -.507812-.50781z" fill-rule="evenodd" opacity=".693"/></g></symbol><symbol id="b-rightarrow" viewBox="0 0 700 1100"><g fill="currentColor"><path d="m410.49414 601.99414a.50005.50005 0 0 0 -.34766.85938l3.64649 3.64648-3.64649 3.64648a.50005.50005 0 1 0 .70704.70704l4-4a.50005.50005 0 0 0 0-.70704l-4-4a.50005.50005 0 0 0 -.35938-.15234z" transform="matrix(100 0 0 100 -40899.645 -60100.058)"/></g></symbol><symbol id="b-sortasc" viewBox="0 0 16 16"><g fill="currentColor"><path d="M4 2a1 1 0 0 1 1 1v7.6l1.3-1.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 1 1 1.4-1.4L3 10.6V3a1 1 0 0 1 1-1z"/><rect x="9" y="3" width="3" height="2" rx="1"/><rect x="9" y="7" width="5" height="2" rx="1"/><rect x="9" y="11" width="7" height="2" rx="1"/></g></symbol><symbol id="b-spreadsheet" viewBox="0 0 1800 1600"><g fill="currentColor"><g enable-background="new" transform="matrix(100 0 0 100 -179500.005 -34700)"><path d="m1796.5 348a.50005.50005 0 0 0 -.5.5v5.5h1v-5h2v-1zm7.5 0v1h7v5h1v-5.5a.50005.50005 0 0 0 -.5-.5zm-8 11v2.5a.50005.50005 0 0 0 .5.5h2.5v-1h-2v-2zm15 0v2h-7v1h7.5a.50005.50005 0 0 0 .5-.5v-2.5z" opacity=".7"/><path d="m1800 348h3v14h-3zm-4 7h16v3h-16z"/></g></g></symbol><symbol id="b-time" viewBox="0 0 16 16"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 1 0 8 1zM7 4.9a1 1 0 0 1 2 0V7h1.3a1 1 0 0 1 0 2H8a1 1 0 0 1-1-1z" fill="currentColor" fill-rule="evenodd"/></symbol><symbol id="b-tria_down" viewBox="0 0 1000 800"><defs
      /><g
     ><path
       
@@ -8003,6 +8097,10 @@ MPI18n.add('fr',{
 'Next frame':'Frame suivante',
 'Next shot':'Plan suivant',
 'Next':'Suivant',
+'Loop':'Boucle',
+'At the end of the video':'À la fin de la vidéo',
+'At the end: the same video again':'À la fin : la même vidéo, encore',
+'At the end: the next shot of {seq}, as Play the sequence':'À la fin : le plan suivant de {seq}, comme Lire la séquence',
 'No .mp4 in that folder.':'Aucun .mp4 dans ce dossier.',
 'no answer':'pas de réponse',
 'No department required.':'Aucun département requis.',
@@ -8071,6 +8169,20 @@ MPI18n.add('fr',{
 'Open retakes':'Retakes ouverts',
 'Open the original video in this machine\'s player':'Ouvrir la vidéo originale dans le lecteur de cette machine',
 'Open {name}':'Ouvrir {name}',
+'Its detail':'Son détail',
+'Start frame':'Début',
+'A name: lowercase letters, digits and hyphens':'Un nom : minuscules, chiffres et tirets',
+'{name} exists already':'{name} existe déjà',
+'Shot numbers and frames: whole numbers, not negative':'Numéros de plan et frames : des entiers, pas négatifs',
+'Inconsistent timeline: shot numbers or start frames not in order':'Timeline incohérente : numéros de plan ou frames de début pas dans l’ordre',
+'Shot {n} already used by {name}':'Plan {n} déjà pris par {name}',
+'A block: one continuous action across several cameras, worked by one person at a time. Not one action? Separate shots.':'Un bloc : une seule action continue sur plusieurs caméras, travaillée par une personne à la fois. Pas une seule action ? Des plans séparés.',
+'Create anyway':'Créer quand même',
+'Number':'Numéro',
+'Shot number':'Numéro du plan',
+'One more shot: a block':'Un plan de plus : un bloc',
+'after {dept}: not in this render':'après {dept} : pas dans ce rendu',
+'a click: this job, in Farm':'un clic : ce job, dans Farm',
 'Open':'Ouvertes',
 'opening {file}':'ouverture de {file}',
 'opens the folder':'ouvre le dossier',
@@ -8087,7 +8199,6 @@ MPI18n.add('fr',{
 'play':'lecture',
 'Play':'Lecture',
 'Play: the path\'s shots one after the other.':'Lecture : les plans du parcours s\'enchaînent.',
-'playing the sequence':'lecture de la séquence',
 'Playing {seq}: the shots one after the other':'Lecture de {seq} : les plans s\'enchaînent',
 'Plays the path\'s shots one after the other':'Enchaîne les plans du parcours',
 'Plays this shot again and again':'Rejoue ce plan en boucle',
@@ -9416,6 +9527,12 @@ function createOf(p) {
     const part = p.name.split('_')[1] || '';
     o.sequence = digits(p.g || p.name.split('_')[0]);
     o.shot = part.startsWith(sp) ? part.slice(sp.length) : digits(part);
+    // Each shot's start, then the end (Blender's New shot): "1001-1051-1101".
+    if (p.timeline && p.timeline.length) {
+      o.timeline = p.timeline.join('-');
+      o.frame_start = p.timeline[0];
+      o.frame_end = p.timeline[p.timeline.length - 1];
+    }
     if (p.frame_start != null) o.frame_start = p.frame_start;
     if (p.frame_end != null) o.frame_end = p.frame_end;
   } else {
@@ -9577,7 +9694,13 @@ function fromActions(actions) {
         kind: a.kind === 'shot' ? 'shot' : 'asset',
         desc: a.description || '',
         deps: a.departments || [],
-        assignees: a.assignees || {}
+        assignees: a.assignees || {},
+        ...(a.kind === 'shot'
+          ? {
+              shots: String(a.shot || '').split('-').map(Number),
+              ...(a.timeline ? { timeline: String(a.timeline).split('-').map(Number) } : {})
+            }
+          : {})
       });
       return;
     }
@@ -9795,7 +9918,10 @@ PV.addEventListener('ended', () => {
     mEnd();
     return;
   }
-  if (S.seqPlay && S.wide) seqNext();
+  if (!S.wide) return;
+  // At the end, Watch large's choice: the next shot (as Play the sequence), or the same again.
+  if (S.seqPlay) seqNext();
+  else togglePlay();
 });
 const tickV = () => {
   if (!PV.paused) {
@@ -10374,7 +10500,7 @@ function farmCell(it) {
     const m = String(f.text || '').match(/(\d+)\/(\d+)/),
       p = m ? +m[1] / +m[2] : null;
     out.push(
-      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" title="${esc(TS(f.tip || f.text))}">${ic(f.state === 'waiting' ? 'b-time' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}${f.department ? ' · ' + esc(LBL[f.department] || f.department) : ''}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
+      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" ${f.id ? `role="button" tabindex="0" data-gojob="${esc(f.id)}"` : ''} title="${esc(TS(f.tip || f.text))}${f.id ? ' · ' + T('a click: this job, in Farm') : ''}">${ic(f.state === 'waiting' ? 'b-time' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}${f.department ? ' · ' + esc(LBL[f.department] || f.department) : ''}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
     );
   }
   if (it.toCheck)
@@ -11022,6 +11148,8 @@ function todoOf(it) {
       !(it.ok[d] && !it.ok[d].old) &&
       it.mine[d] !== 'val' &&
       (!tdSt() || (tdSt() === 'val') === toCheck(it, d)) &&
+      // To work on: not what waits on something else (nothing to do on it yet).
+      !(tdSt() === 'work' && (it.flags[d] || {}).waiting) &&
       (!t.dept || d === t.dept) &&
       (!tdWho() || assignOf(it, d).includes(tdWho()))
   );
@@ -11068,7 +11196,7 @@ function renderTodoQuick() {
           `<button class="mi" role="menuitemradio" aria-checked="${t.dept === d}" data-tdd="${d}"><span class="ck">${t.dept === d ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(l)}</span></button>`
       )
       .join('')}</div></span>
-    <button class="btn ${t.order === 'old' ? '' : 'tool'}" data-tdo="${t.order === 'old' ? 'seq' : 'old'}" aria-pressed="${t.order === 'old'}" title="${T('Waiting the longest first: for a reviewer since the latest stable, to work on since the oldest open retake')}">${ic('b-sorttime')}${T('Oldest first')}</button>
+    <button class="btn ${t.order === 'old' ? '' : 'tool'}" data-tdo="${t.order === 'old' ? 'seq' : 'old'}" aria-pressed="${t.order === 'old'}" title="${T('Waiting the longest first: for a reviewer since the latest stable, to work on since the oldest open retake')}">${ic('b-sortasc')}${T('Oldest first')}</button>
     ${
       tdPeople().length
         ? `<span class="anchor"><button class="btn ${tdWho() ? '' : 'tool'}" data-menu="m-tdw" aria-haspopup="true" aria-expanded="false" ${tdWho() ? 'aria-pressed="true"' : ''}>${ic('b-user')}${tdWho() ? esc(tdWho()) : T('Everyone')}${ic('b-downarrow_hlt')}</button>
@@ -12333,7 +12461,12 @@ function machinesHTML() {
   const wk = w =>
     !w
       ? `<span class="faint">${T('not a worker')}</span>`
-      : `<button class="mn-w" data-wk="${w.uuid}">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: esc(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></button>`;
+      : `<span class="mn-w">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: fileLink(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></span>`;
+  // The file it renders: a click opens that file (its detail), not the machine's.
+  const fileLink = f => {
+    const n = name(f);
+    return n ? `<button class="lnk mono" data-sgofile="${esc(n)}" data-stab="plan" title="${T('Open {name}', { name: esc(n) })}">${esc(f)}</button>` : esc(f);
+  };
   // Its head: the farm itself -- who hosts it, its monitor, what it does now -- and its switch.
   const farmNow = farmUp()
     ? `<span class="faint mh-farm">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · ${T('monitor {state}', { state: st })} · ${T('Now: {what}', { what: hostNow(me.host_now) })}</span><span style="flex:1"></span>${monitorBtn('sm')}`
@@ -12344,7 +12477,7 @@ function machinesHTML() {
         ? `<div class="mnodes">${ms
             .map(
               // Its worker first (what it renders), then its files open; none open: nothing said.
-              m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''} ${m.me ? 'me' : ''}"><div class="mn-h">${ic('b-user')}<b>${esc(m.label)}</b>${m.me && m.label !== T('This machine') ? `<span class="tag">${T('this machine')}</span>` : ''}</div>
+              m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''} ${m.me ? 'me' : ''}"><${m.worker ? `button class="mn-h" data-wk="${m.worker.uuid}" title="${T('Its detail')}"` : 'div class="mn-h"'}>${ic('b-user')}<b>${esc(m.label)}</b>${m.me && m.label !== T('This machine') ? `<span class="tag">${T('this machine')}</span>` : ''}</${m.worker ? 'button' : 'div'}>
         <div class="mn-b">${wk(m.worker)}${m.files
           .map(f => {
             const n = name(f.file);
@@ -12903,7 +13036,7 @@ function renderWide() {
         : '';
   W.innerHTML = `<div class="w-head"><button class="btn icon" data-wclose aria-label="${T('Close')}" title="${T('Close (Esc)')}">${ic('b-x')}</button>
       <span class="phead"><span class="pname">${it.name}</span><span class="d">${[v && v.folder, it.toCheck ? T('to check') : '', it.desc].filter(Boolean).map(esc).join(' · ')}</span></span>
-      <span class="faint only-wide">${S.seqPlay ? '▶ ' + T('playing the sequence') + ' · ' : ''}${T('{k} / {n} in {seq}', { k: sib.findIndex(i => i.name === it.name) + 1, n: sib.length, seq: g })}</span>
+      <span class="faint only-wide">${T('{k} / {n} in {seq}', { k: sib.findIndex(i => i.name === it.name) + 1, n: sib.length, seq: g })}</span>
       <span class="join"><button class="btn icon" data-wstep="-1" ${stepOff(-1)} aria-label="${T('Previous file')}" title="${T('Previous file (←)')}">${ic('b-tria_left')}</button><button class="btn icon" data-wstep="1" ${stepOff(1)} aria-label="${T('Next file')}" title="${T('Next file (→)')}">${ic('b-tria_right')}</button></span>
       ${rv ? `<span class="review-chip only-wide"><span class="who">${esc(rv.name)} · ${rv.role}</span></span>` : ''}
       <button class="btn icon" data-act="player" aria-label="${T("This machine's player")}" title="${T("Open the original video in this machine's player")}">${ic('b-file_movie')}</button>
@@ -12918,6 +13051,7 @@ function renderWide() {
         <button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button>
+        <span class="join wend" title="${T('At the end of the video')}"><button class="btn sm" data-wend="loop" aria-pressed="${!S.seqPlay}" title="${T('At the end: the same video again')}">${ic('b-loop_back')}${T('Loop')}</button><button class="btn sm" data-wend="next" aria-pressed="${!!S.seqPlay}" title="${T('At the end: the next shot of {seq}, as Play the sequence', { seq: esc(g) })}">${ic('b-forward')}${T('Next')}</button></span>
         <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span></div>
         <div class="w-vab">${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}</div></div>
         <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>
@@ -13571,8 +13705,10 @@ function seqNext() {
     sib = items.filter(i => i.kind === it.kind && groupOf(i) === groupOf(it) && !omitted(i));
   const n = sib.findIndex(i => i.name === it.name);
   if (n < 0 || n >= sib.length - 1) {
-    S.seqPlay = false;
-    togglePlay();
+    // The last one: stopped there (the choice Next kept for the next time).
+    clearInterval(playT);
+    S.playing = false;
+    syncPlay();
     msg(T('End of the sequence {seq}', { seq: groupOf(it) }));
     renderWide();
     return;
@@ -13650,6 +13786,21 @@ function renderNewsBtn() {
   b.querySelector('.cnt').textContent = n;
   b.querySelector('.cnt').hidden = !n;
 }
+/* The pop's content: each line its own cross (deleted from the list), all at once at the top. */
+function newsHTML() {
+  const IC = { rtk: '--st-rtk', note: '--text-2', render: '--st-done', ok: '--st-val' };
+  return `<h4>${T("What's new")}${NEWS.length ? `<button class="btn sm flat" data-newsclr>${T('Clear all')}</button>` : ''}</h4>${NEWS.length ? NEWS.map((x, k) => `<div class="newsr"><button class="newsi" data-goto-file="${x.n}"><span class="dt" style="background:var(${IC[x.k]})"></span><span class="tx"><span class="h"><b>${esc(x.n)}</b><span class="faint">${x.at}</span></span>${esc(x.h)}<small>${esc(x.x)}</small></span></button><button class="btn sm flat icon newsx" data-newsx="${k}" aria-label="${T('Delete')}" title="${T('Delete')}">${ic('b-x')}</button></div>`).join('') : `<p class="hint">${T('Nothing new since the page opened: notes, retakes, validations and renders come here.')}</p>`}
+    <button class="swi" role="switch" id="notif-sys" aria-checked="${!!S.notifSys}"><span class="lbl">${T('Notify me in the system too')}</span><span class="tg"></span></button>`;
+}
+/* One line out of What's new (k: its place), or all of them (k null): the list redrawn where it is. */
+function newsDel(k) {
+  if (k == null) NEWS.length = 0;
+  else NEWS.splice(k, 1);
+  newsSeen = NEWS.length;
+  renderNewsBtn();
+  const p = document.querySelector('.pop.news');
+  if (p) p.innerHTML = newsHTML();
+}
 function newsPop(btn) {
   const old = document.querySelector('.pop.news');
   if (old) {
@@ -13662,9 +13813,7 @@ function newsPop(btn) {
   p.className = 'pop news';
   p.setAttribute('role', 'dialog');
   p.setAttribute('aria-label', T("What's new"));
-  const IC = { rtk: '--st-rtk', note: '--text-2', render: '--st-done', ok: '--st-val' };
-  p.innerHTML = `<h4>${T("What's new")}</h4>${NEWS.length ? NEWS.map(x => `<button class="newsi" data-goto-file="${x.n}"><span class="dt" style="background:var(${IC[x.k]})"></span><span class="tx"><span class="h"><b>${esc(x.n)}</b><span class="faint">${x.at}</span></span>${esc(x.h)}<small>${esc(x.x)}</small></span></button>`).join('') : `<p class="hint">${T('Nothing new since the page opened: notes, retakes, validations and renders come here.')}</p>`}
-    <button class="swi" role="switch" id="notif-sys" aria-checked="${!!S.notifSys}"><span class="lbl">${T('Notify me in the system too')}</span><span class="tg"></span></button>`;
+  p.innerHTML = newsHTML();
   btn.parentElement.appendChild(p);
   placePop(p, btn);
 }
@@ -13769,33 +13918,134 @@ function setTheme(t) {
   closeMenus();
   if (S.ws === 'links') requestAnimationFrame(drawGraph);
 }
-function planDlg(g, kind) {
-  const its = items.filter(i => i.kind === kind && groupOf(i) === g);
-  let next = '';
-  if (kind === 'shot') {
-    const nums = its
-      .flatMap(i => [i.name, ...(i.shots || []).map(s => g + '_' + s)])
-      .map(n => +(n.match(/sh(\d+)/) || [])[1] || 0)
-      .concat(S.planned.filter(p => p.g === g).map(p => +(p.name.match(/sh(\d+)/) || [])[1] || 0));
-    next = g + '_sh' + String(Math.max(0, ...nums) + 10).padStart(3, '0');
-  } else next = g + '_';
-  const dl = $('#dlg');
-  dl.hidden = false;
-  dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="pl-t"><h3 id="pl-t">${kind === 'shot' ? T('New shot in {seq}', { seq: g }) : T('New file {prefix}_…', { prefix: g })}</h3>
-    <p class="faint" style="margin:0">${T('Made in the project when your review is imported, with its folders.')}</p>
-    <div class="prop"><span class="k">${T('Name')}</span><span class="v"><label class="field" style="flex:1"><input id="pl-n" value="${next}" aria-label="${T('Name')}"></label></span></div>
-    <div class="prop"><span class="k">${T('Description')}</span><span class="v"><label class="field" style="flex:1"><input id="pl-d" placeholder="${T('What it shows')}" aria-label="${T('Description')}"></label></span></div>
-    <div class="prop"><span class="k">${T('Departments')}</span><span class="v"><span class="join">${DEPTS[kind].map(d => `<button class="btn sm" data-pld="${d}" aria-pressed="true">${LBL[d]}</button>`).join('')}</span></span></div>
-    <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-plok="${g}" data-plk="${kind}">${ic('b-add')}${T('Add to my review')}</button></div></div>`;
-  setTimeout(() => $('#pl-n').focus(), 0);
+/* A new shot or asset, as Blender's New shot / New asset: the sequence (or prefix) fixed by where it's
+   asked, the shot prefix the project's; a shot's numbers each with its start frame, the end, the name
+   that makes, what clashes. PL: the dialog's state while open. */
+let PL = null;
+const plSp = () => ((M.naming || {}).shot || {}).prefix || 'sh';
+const plSd = () => ((M.naming || {}).shot || {}).digits || 3;
+const plStart = () => +((M.naming || {}).frame_start ?? 1001);
+const plStep = 50; // lib DEFAULT_MULTISHOT_STEP
+/* An asset's name, as lib/config.py sanitize_name() makes it. */
+const plSan = v =>
+  String(v || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ /g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '');
+/* The shot numbers taken in the sequence: {number: [the file's name, mono]} (planned ones too). */
+function plOwners(g) {
+  const out = {},
+    sp = plSp();
+  const add = (name, nums) => nums.forEach(n => (out[n] = [name, nums.length === 1]));
+  items
+    .filter(i => i.kind === 'shot' && groupOf(i) === g && !omitted(i))
+    .forEach(i => {
+      const seg = (i.name.split('_')[1] || '').slice(sp.length);
+      add(i.name, seg.split('-').map(Number).filter(n => !isNaN(n)));
+    });
+  S.planned
+    .filter(p => p.kind === 'shot' && p.g === g)
+    .forEach(p => add(p.name, p.shots || (p.name.split('_')[1] || '').slice(sp.length).split('-').map(Number)));
+  return out;
 }
+const plName = () =>
+  PL.kind === 'shot'
+    ? `${PL.g}_${plSp()}${[...new Set(PL.shots.map(x => x.n))].sort((a, b) => a - b).map(n => String(n).padStart(plSd(), '0')).join('-')}`
+    : `${PL.g}_${plSan(PL.name) || '…'}`;
+/* What's wrong: [blocking, warnings] -- as operators/shot_ops.py (order, negatives, numbers taken). */
+function plCheck() {
+  const err = [],
+    warn = [];
+  if (PL.kind !== 'shot') {
+    if (!plSan(PL.name)) err.push(T('A name: lowercase letters, digits and hyphens'));
+    else if (items.some(i => i.name === plName()) || S.planned.some(p => p.name === plName())) err.push(T('{name} exists already', { name: plName() }));
+    return [err, warn];
+  }
+  const ns = PL.shots.map(x => x.n),
+    st = PL.shots.map(x => x.s);
+  if (ns.some(n => !Number.isInteger(n) || n < 0) || st.some(n => !Number.isInteger(n) || n < 0) || !Number.isInteger(PL.end) || PL.end < 0)
+    err.push(T("Shot numbers and frames: whole numbers, not negative"));
+  else if (ns.join() !== [...new Set(ns)].sort((a, b) => a - b).join() || st.join() !== [...new Set(st)].sort((a, b) => a - b).join() || PL.end < st[st.length - 1])
+    err.push(T('Inconsistent timeline: shot numbers or start frames not in order'));
+  const own = plOwners(PL.g),
+    mono = ns.length === 1;
+  ns.forEach(n => {
+    const o = own[n];
+    if (!o) return;
+    const lab = T('Shot {n} already used by {name}', { n: String(n).padStart(plSd(), '0'), name: o[0] });
+    (mono && o[1] ? err : warn).push(lab);
+  });
+  return [err, warn];
+}
+function planDlg(g, kind) {
+  if (kind === 'shot') {
+    const own = Object.keys(plOwners(g)).map(Number);
+    PL = { g, kind, shots: [{ n: Math.floor(Math.max(0, ...own) / 10) * 10 + 10, s: plStart() }], end: plStart() + 100, desc: '', deps: new Set(DEPTS[kind]), anyway: false };
+  } else PL = { g, kind, name: '', desc: '', deps: new Set(DEPTS[kind]) };
+  planDraw();
+  setTimeout(() => $(kind === 'shot' ? '#pl-d' : '#pl-n')?.focus(), 0);
+}
+/* What the dialog shows that follows its fields: the name made, the warnings, Add's state. */
+function planLive() {
+  const [err, warn] = plCheck(),
+    box = $('#pl-live');
+  if (!box) return;
+  box.innerHTML = `<div class="prop"><span class="k">${T('Name')}</span><span class="v"><span class="mono">${esc(plName())}</span></span></div>
+    ${PL.kind === 'shot' && PL.shots.length > 1 ? `<p class="hint">${T('A block: one continuous action across several cameras, worked by one person at a time. Not one action? Separate shots.')}</p>` : ''}
+    ${err.map(x => `<p class="tag fail pl-w">${ic('b-error')}${esc(x)}</p>`).join('')}${!err.length ? warn.map(x => `<p class="tag check pl-w">${ic('b-error')}${esc(x)}</p>`).join('') : ''}
+    ${!err.length && warn.length ? `<button class="swi" role="switch" data-planyway aria-checked="${!!PL.anyway}"><span class="lbl">${T('Create anyway')}</span><span class="tg"></span></button>` : ''}`;
+  const ok = $('[data-plok]');
+  if (ok) ok.disabled = !!err.length || (!!warn.length && !PL.anyway);
+}
+function planDraw() {
+  const dl = $('#dlg'),
+    sh = PL.kind === 'shot';
+  const rows = sh
+    ? `<div class="prop"><span class="k">${T('Shots')}</span><span class="v pl-sh"><span class="pl-h"><span>${T('Number')}</span><span>${T('Start frame')}</span><span></span></span>${PL.shots
+        .map(
+          (x, k) =>
+            `<span class="pl-r"><label class="field"><span class="faint mono">${esc(plSp())}</span><input type="number" min="0" step="10" data-pln="${k}" value="${x.n}" aria-label="${T('Shot number')}"></label><label class="field"><input type="number" min="0" data-pls="${k}" value="${x.s}" aria-label="${T('First frame')}"></label><button class="btn sm flat icon" data-plrm="${k}" ${PL.shots.length > 1 ? '' : 'disabled'} aria-label="${T('Remove')}" title="${T('Remove')}">${ic('b-x')}</button></span>`
+        )
+        .join('')}<span class="pl-r"><button class="btn sm tool" data-pladd title="${T('One more shot: a block')}">${ic('b-add')}${T('Shot')}</button><label class="field"><span class="faint">${T('end')}</span><input type="number" min="0" data-ple value="${PL.end}" aria-label="${T('Last frame')}"></label><span></span></span></span></div>`
+    : `<div class="prop"><span class="k">${T('Name')}</span><span class="v"><label class="field" style="flex:1"><span class="faint mono">${esc(PL.g)}_</span><input id="pl-n" value="${esc(PL.name)}" aria-label="${T('Name')}" autocomplete="off"></label></span></div>`;
+  dl.hidden = false;
+  dl.innerHTML = `<div class="dlg-in pl" role="dialog" aria-modal="true" aria-labelledby="pl-t"><h3 id="pl-t">${sh ? T('New shot in {seq}', { seq: esc(PL.g) }) : T('New file {prefix}_…', { prefix: esc(PL.g) })}</h3>
+    <p class="faint" style="margin:0">${T('Made in the project when your review is imported, with its folders.')}</p>
+    ${rows}
+    <div class="prop"><span class="k">${T('Description')}</span><span class="v"><label class="field" style="flex:1"><input id="pl-d" value="${esc(PL.desc)}" placeholder="${T('What it shows')}" aria-label="${T('Description')}"></label></span></div>
+    <div class="prop"><span class="k">${T('Departments')}</span><span class="v"><span class="join">${DEPTS[PL.kind].map(d => `<button class="btn sm" data-pld="${d}" aria-pressed="${PL.deps.has(d)}">${LBL[d]}</button>`).join('')}</span></span></div>
+    <div id="pl-live"></div>
+    <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-plok>${ic('b-add')}${T('Add to my review')}</button></div></div>`;
+  planLive();
+}
+/* Its fields typed in: the state, then what follows them (the inputs themselves left as typed). */
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (!PL || !t.closest || !t.closest('.dlg-in.pl')) return;
+  const v = t.value === '' ? NaN : +t.value;
+  if (t.dataset.pln != null) PL.shots[+t.dataset.pln].n = v;
+  else if (t.dataset.pls != null) PL.shots[+t.dataset.pls].s = v;
+  else if (t.dataset.ple != null) PL.end = v;
+  else if (t.id === 'pl-n') PL.name = t.value;
+  else if (t.id === 'pl-d') PL.desc = t.value;
+  planLive();
+});
 /* Render checked, as in Blender: what watching it says of the file's departments -- ticked, one not done
    marked done (on the stable), one done validated (a team member can't) -- and its video to the edit (live). */
-function chkRows(it) {
+function chkRows(it, rd) {
+  // A department's render shows its work and what came before it, not what comes after:
+  // an animation render says nothing of the render department's (DEPTS's order).
+  const dl = DEPTS[it.kind] || [],
+    at = rd ? dl.indexOf(rd) : -1;
   return required(it).map(d => {
     const st = stOf(it, d),
       done = isDone(st);
     if (it.ok[d] || it.mine[d] === 'val') return { d, act: '', on: true, s: T('Validated') };
+    if (at >= 0 && dl.indexOf(d) > at)
+      return { d, act: '', on: done, s: info(it, d).l + ' · ' + T('after {dept}: not in this render', { dept: LBL[rd] || rd }) };
     if (done) return { d, act: canVal(it, d) ? 'val' : '', on: true, s: canVal(it, d) ? T('Done · ticked: validated') : T('Done') };
     return { d, act: canMark(it, d) ? 'mark' : '', on: false, s: canMark(it, d) ? info(it, d).l + ' · ' + T('ticked: done') : info(it, d).l };
   });
@@ -13807,11 +14057,11 @@ function checkedDlg(key) {
     const c = checksOf(it).find(x => x.key === key);
     // The render's own department ticked first; "render" without one.
     const rd = c && c.department ? c.department : 'render';
-    S.chk = { name: it.name, key: key || '', push: false, on: new Set(chkRows(it).filter(r => r.act && r.d === rd).map(r => r.d)) };
+    S.chk = { name: it.name, key: key || '', push: false, on: new Set(chkRows(it, c && c.department).filter(r => r.act && r.d === rd).map(r => r.d)) };
   }
   const o = S.chk,
-    rows = chkRows(it),
-    c = checksOf(it).find(x => x.key === o.key);
+    c = checksOf(it).find(x => x.key === o.key),
+    rows = chkRows(it, c && c.department);
   const dl = $('#dlg');
   dl.hidden = false;
   dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="ck-t"><h3 id="ck-t">${T('Render checked')} · ${esc(it.name)}</h3>
@@ -13828,7 +14078,7 @@ function checkedGo() {
   if (!it || !o) return;
   const c0 = checksOf(it).find(x => x.key === o.key);
   let n = 0;
-  chkRows(it).forEach(r => {
+  chkRows(it, c0 && c0.department).forEach(r => {
     if (!r.act || !o.on.has(r.d)) return;
     if (r.act === 'val') A.validate(it, r.d);
     else A.mark(it, r.d);
@@ -14595,6 +14845,7 @@ function mSheet() {
             `<button class="m-opt" data-mgo="${x.n}"><span class="dt" style="background:var(${IC[x.k]})"></span><span class="lbl"><span class="mono">${esc(x.n)}</span> · ${esc(x.h)}<small>${esc(x.x)} · ${x.at}</small></span></button>`
         ).join('')
       : '<p class="m-hint">' + T('Nothing new since the page opened.') + '</p>';
+    if (NEWS.length) foot = `<button class="btn m-wide" data-mnewsclr>${T('Clear all')}</button>`;
   }
   if (k === 'search') {
     t = T('Search everything');
@@ -14778,6 +15029,12 @@ $('#mob').addEventListener('click', e => {
   if (q('[data-tdcopy]')) {
     const c = todoText();
     copyText(c.text, T('Copied: {n} file|Copied: {n} files', { n: c.n }));
+    return;
+  }
+  if ((x = q('[data-mnewsclr]'))) {
+    NEWS.length = 0;
+    newsSeen = 0;
+    mRender();
     return;
   }
   if ((x = q('[data-mgo]'))) {

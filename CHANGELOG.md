@@ -6,6 +6,30 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Live page, New shot (+ shot): Blender's New shot dialog -- the sequence
+  and the shot prefix fixed, a row per shot (its number, its start frame),
+  + Shot for a block, the end frame; the name it makes, the timeline out of
+  order, a number taken (refused for a shot over a shot, else Create
+  anyway). The review's create carries each start ("timeline"), the
+  import makes the file with it. New asset: its prefix fixed, the name as
+  Blender cleans it.
+- Live page, Watch large: Loop / Next beside the sound -- at the end, the
+  same video again, or the sequence's next shot (Play the sequence's); the
+  choice kept while the page is open.
+- Live page, What's new: a cross per line, Clear all at the top (the phone:
+  Clear all).
+- Live page, Farm › Machines: a machine's name opens its detail, the file
+  its worker renders opens that file. The list's Renders column: a file's
+  job opens it in Farm.
+
+### Changed
+
+- Live page, Render checked: a render's departments after its own (an
+  animation render: lighting, render) left as they are -- not in what it
+  shows.
+- Live page, To do: To work on leaves out the departments waiting on
+  something else; Oldest first's icon a sort, no hourglass.
+
 - Live page, Breakdown: one view instead of three modes (Done, Validated,
   Retakes). A cell's bar shows its departments' states -- validated, done,
   in retake (done with an open retake, one or ten), in progress (reworked
