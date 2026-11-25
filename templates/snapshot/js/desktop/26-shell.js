@@ -80,23 +80,24 @@ function renderStatus() {
 }
 /* The footer's background work: what runs (its spinner), else the last one ended in the
    last minutes (✓ / ✕); every one, with its words, in its tooltip. */
-const BG_KIND = { relink: () => T('Update links'), rushes: () => T('Rushes') };
+const BG_KIND = { relink: () => T('Update links'), rushes: () => T('Rushes'), open: () => T('Opening in Blender') };
 function bgHTML() {
-  if (!BG.length) return '';
+  const all = [...BG, ...(typeof OPENING !== 'undefined' ? OPENING : [])];
+  if (!all.length) return '';
   const say = t =>
     `${(BG_KIND[t.kind] || (() => t.kind))()} · ${TS(t.label)}` +
     (t.state === 'running' ? ' · ' + T('under way') : t.state === 'done' ? ' · ' + T('done') : ' · ' + T('failed')) +
     (t.message ? ' -- ' + TS(t.message) : '');
-  const run = BG.filter(t => t.state === 'running'),
-    last = BG[BG.length - 1],
-    tip = esc(BG.map(say).join('\n'));
+  const run = all.filter(t => t.state === 'running'),
+    last = all[all.length - 1],
+    tip = esc(all.map(say).join('\n'));
   if (run.length)
     return `<span class="bgt run" title="${tip}"><i class="spin" aria-hidden="true"></i>${run.length > 1 ? T('{n} tasks under way', { n: run.length }) : esc((BG_KIND[run[0].kind] || (() => run[0].kind))() + ' · ' + TS(run[0].label))}</span>`;
   // Several ended: their count, by outcome; one, its name.
-  const bad = BG.filter(t => t.state === 'failed').length,
+  const bad = all.filter(t => t.state === 'failed').length,
     words =
-      BG.length > 1
-        ? [BG.length - bad ? T('{n} task done|{n} tasks done', { n: BG.length - bad }) : '', bad ? T('{n} task failed|{n} tasks failed', { n: bad }) : ''].filter(Boolean).join(' · ')
+      all.length > 1
+        ? [all.length - bad ? T('{n} task done|{n} tasks done', { n: all.length - bad }) : '', bad ? T('{n} task failed|{n} tasks failed', { n: bad }) : ''].filter(Boolean).join(' · ')
         : (BG_KIND[last.kind] || (() => last.kind))() + ' · ' + TS(last.label);
   return `<span class="bgt ${bad ? 'bad' : 'ok'}" title="${tip}">${ic(bad ? 'b-error' : 'b-checkmark')}${esc(words)}</span>`;
 }

@@ -35,6 +35,8 @@ All notable changes to this addon. Dates are release dates.
   refused (the new stable lost data the file links) was in the log only.
   The data it lacks says its type: "Lustre-rig (object), Lustre-rig
   (collection)".
+  A file Blender opens from the page says so too, until Blender answers
+  again (often busy some seconds).
 - Live page, Links: an asset whose newer stable the shots don't link yet
   has *Update the files linking it (n)* -- each of those files relinked --
   apart from *Update its links* (its own). The one button relinked the asset

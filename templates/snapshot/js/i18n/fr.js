@@ -28,6 +28,7 @@ MPI18n.add('fr',{
 'worker · idle':'worker · libre',
 'farm host':'hôte de la farm',
 'Update links':'Mise à jour des liens',
+'Opening in Blender':'Ouverture dans Blender',
 'Rushes':'Rushes',
 'under way':'en cours',
 'done':'terminé',

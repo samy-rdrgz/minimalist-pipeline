@@ -22,8 +22,22 @@ function liveOpen(file, save, anyway) {
           ? sentSay(T('opening {file}', { file: res.opened }))
           : T('Not opened: {error}', { error: TS(res.error) })
       );
+      // Blender opening it, often busy a while: said in the footer until it answers again.
+      if (res.ok) {
+        OPENING.splice(0, OPENING.length, { kind: 'open', label: res.opened, state: 'running', message: '', t0: Date.now() });
+        renderStatus();
+      }
     })
     .catch(noAnswer);
+}
+/* A file Blender opens (the page asked): its footer line, ended once Blender answers again
+   (a few seconds on), or after two minutes whatever happens. */
+const OPENING = [];
+function openingEnd(force) {
+  const o = OPENING[0];
+  if (!o || (!force && Date.now() - o.t0 < 3000)) return;
+  OPENING.length = 0;
+  renderStatus();
 }
 function askElsewhere(file, res) {
   const dl = $('#dlg');
@@ -341,6 +355,7 @@ function liveStatus(s) {
         ? T('Blender is busy: the page waits')
         : T("Blender doesn't answer: trying again");
   p.lastChild.textContent = s === 'on' ? 'live' : s === 'busy' ? T('busy') : T('disconnected');
+  if (OPENING.length && (s === 'on' || Date.now() - OPENING[0].t0 > 120000)) openingEnd(Date.now() - OPENING[0].t0 > 120000);
 }
 let liveAb = null,
   polling = false;
