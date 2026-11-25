@@ -4836,6 +4836,14 @@ button.mn-h:hover {
 .vm .vk.val {
   background: var(--st-val);
 }
+/* Kept from an earlier stable: its diamond hollow, its words greyed. */
+.vm.kept {
+  color: var(--text-3);
+}
+.vm.kept .vk.val {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--st-val);
+}
 /* Render history: which machine wrote which frame. */
 /* Which machine rendered a frame: the answer, then each machine's frames. */
 .fm-a {
