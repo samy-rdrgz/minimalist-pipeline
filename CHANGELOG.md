@@ -29,6 +29,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, Watch large: Next plays a block's sub-shots one after the
+  other, then the next shot of the list as filtered (To check, a search...),
+  across sequences -- it played a block's first sub-shot only, stopped at the
+  sequence's end, and ignored the filters; ← → go through that list too.
+  Play the sequence still stops at its own end. Another shot, or another
+  sub-shot, starts at its very first frame.
 - Live page, background work in the footer: Update links and pushes of the
   rushes said while under way (a spinner, how many), then done or failed
   (✓ / ✕, a toast once, every one with its words in the tooltip) -- a relink

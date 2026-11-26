@@ -55,22 +55,44 @@ const fixHTML = (it, n) => {
   const on = !!it.fixed[n.id];
   return `<button class="btn sm ${on ? 'ok' : 'flat'}" data-fix="${n.id}" aria-pressed="${on}" title="${on ? T('Cancel') : n.type === 'rtk' ? T('Mark fixed: applied when your review is imported') : T('Mark done: applied when your review is imported')}">${ic('b-checkmark')}${on ? T('Fixed · you') : n.type === 'rtk' ? T('Mark fixed') : T('Mark done')}</button>`;
 };
+/* The sub-shots of a block with a video of their own, in its order (a whole-block render
+   plays them all at once: none then). */
+const ownShots = it =>
+  it.versions.some(v => !(v.shot || '')) ? [] : (it.shots || []).filter(s => it.versions.some(v => v.shot === s));
+/* Next at a video's end (Watch large): a block's next sub-shot, else the next file of the list
+   as filtered (To check, a search... -- across sequences); Play the sequence stops at its own. */
 function seqNext() {
   const it = cur(),
-    sib = items.filter(i => i.kind === it.kind && groupOf(i) === groupOf(it) && !omitted(i));
-  const n = sib.findIndex(i => i.name === it.name);
-  if (n < 0 || n >= sib.length - 1) {
+    sh = ownShots(it),
+    k = sh.indexOf(shotOf(it));
+  if (k >= 0 && k < sh.length - 1) {
+    S.playing = false;
+    S.shot[it.name] = sh[k + 1];
+    S.ver[it.name] = 0;
+    S.frame = 1;
+    renderProps();
+    renderWide();
+    togglePlay();
+    return;
+  }
+  const only = typeof S.seqPlay === 'string' ? S.seqPlay : null,
+    L = playList(it).filter(i => !omitted(i) && (!only || groupOf(i) === only)),
+    n = L.findIndex(i => i.name === it.name);
+  if (n < 0 || n >= L.length - 1) {
     // The last one: stopped there (the choice Next kept for the next time).
     clearInterval(playT);
     S.playing = false;
     syncPlay();
-    msg(T('End of the sequence {seq}', { seq: groupOf(it) }));
+    msg(only ? T('End of the sequence {seq}', { seq: only }) : T('End of the list'));
     renderWide();
     return;
   }
-  // The next one from its start, playing on (the one before ended: paused).
+  // The next one from its start (a block: its first sub-shot), playing on.
+  const nx = L[n + 1];
+  delete S.shot[nx.name];
+  S.ver[nx.name] = 0;
   S.playing = false;
-  select(sib[n + 1].name, { open: false });
+  select(nx.name, { open: false });
   togglePlay();
 }
 const RF = {};

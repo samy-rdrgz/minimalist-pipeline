@@ -8277,7 +8277,8 @@ MPI18n.add('fr',{
 'Loop':'Boucle',
 'At the end of the video':'À la fin de la vidéo',
 'At the end: the same video again':'À la fin : la même vidéo, encore',
-'At the end: the next shot of {seq}, as Play the sequence':'À la fin : le plan suivant de {seq}, comme Lire la séquence',
+'At the end: the next sub-shot, then the next shot of the list as filtered':'À la fin : le sous-plan suivant, puis le plan suivant de la liste filtrée',
+'End of the list':'Fin de la liste',
 'No .mp4 in that folder.':'Aucun .mp4 dans ce dossier.',
 'no answer':'pas de réponse',
 'No department required.':'Aucun département requis.',
@@ -10060,12 +10061,15 @@ function mountVideo() {
   if (img) img.hidden = true;
   if (PV.parentNode !== st) st.insertBefore(PV, st.firstChild);
   if (PV.dataset.src !== c.src) {
-    // Another version of the same file (A / B): the same frame; another file, its start.
-    if (PV.dataset.item !== c.it.name) {
+    // Another version of the same shot (A / B): the same frame; another file, or another
+    // sub-shot of a block, its very start.
+    const key = c.it.name + '|' + shotOf(c.it);
+    let t = PV.dataset.src ? (S.frame - 1 + 0.5) / FPS() : 0;
+    if (PV.dataset.item !== key) {
       S.frame = 1;
-      PV.dataset.item = c.it.name;
+      t = 0;
+      PV.dataset.item = key;
     }
-    const t = PV.dataset.src ? (S.frame - 1 + 0.5) / FPS() : 0;
     PV.dataset.src = c.src;
     PV.src = c.src;
     PV.currentTime = t;
@@ -13377,7 +13381,7 @@ function renderWide() {
         <button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button>
-        <span class="join wend" title="${T('At the end of the video')}"><button class="btn sm" data-wend="loop" aria-pressed="${!S.seqPlay}" title="${T('At the end: the same video again')}">${ic('b-loop_back')}${T('Loop')}</button><button class="btn sm" data-wend="next" aria-pressed="${!!S.seqPlay}" title="${T('At the end: the next shot of {seq}, as Play the sequence', { seq: esc(g) })}">${ic('b-forward')}${T('Next')}</button></span>
+        <span class="join wend" title="${T('At the end of the video')}"><button class="btn sm" data-wend="loop" aria-pressed="${!S.seqPlay}" title="${T('At the end: the same video again')}">${ic('b-loop_back')}${T('Loop')}</button><button class="btn sm" data-wend="next" aria-pressed="${!!S.seqPlay}" title="${T('At the end: the next sub-shot, then the next shot of the list as filtered')}">${ic('b-forward')}${T('Next')}</button></span>
         <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span></div>
         <div class="w-vab">${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}</div></div>
         <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>
@@ -13825,12 +13829,16 @@ function select(n, { open = true } = {}) {
   if (open && narrow() && !S.wide) document.body.classList.add('props-open');
   document.body.classList.remove('out-open');
 }
-/* The files previous / next go through: Watch large, its sequence's; the file's own list, as
-   filtered; any other tab (Links, To do, Breakdown), every file of its kind. */
+/* The files previous / next go through: the file's own list, as filtered (Watch large too);
+   any other tab (Links, To do, Breakdown), every file of its kind. */
 function navList() {
   const it = cur();
   if (!it || S.ws === 'farm') return [];
-  if (S.wide) return items.filter(i => i.kind === it.kind && groupOf(i) === groupOf(it));
+  return playList(it);
+}
+/* The list as shown (its filters, its folded sequences left out) when the file is in it;
+   else every file of its kind. Watch large plays through it too (Next, ← →). */
+function playList(it) {
   if (S.ws === it.kind) {
     const v = visible().filter(i => !S.closed.has(groupOf(i)));
     if (v.some(i => i.name === it.name)) return v;
@@ -14067,22 +14075,44 @@ const fixHTML = (it, n) => {
   const on = !!it.fixed[n.id];
   return `<button class="btn sm ${on ? 'ok' : 'flat'}" data-fix="${n.id}" aria-pressed="${on}" title="${on ? T('Cancel') : n.type === 'rtk' ? T('Mark fixed: applied when your review is imported') : T('Mark done: applied when your review is imported')}">${ic('b-checkmark')}${on ? T('Fixed · you') : n.type === 'rtk' ? T('Mark fixed') : T('Mark done')}</button>`;
 };
+/* The sub-shots of a block with a video of their own, in its order (a whole-block render
+   plays them all at once: none then). */
+const ownShots = it =>
+  it.versions.some(v => !(v.shot || '')) ? [] : (it.shots || []).filter(s => it.versions.some(v => v.shot === s));
+/* Next at a video's end (Watch large): a block's next sub-shot, else the next file of the list
+   as filtered (To check, a search... -- across sequences); Play the sequence stops at its own. */
 function seqNext() {
   const it = cur(),
-    sib = items.filter(i => i.kind === it.kind && groupOf(i) === groupOf(it) && !omitted(i));
-  const n = sib.findIndex(i => i.name === it.name);
-  if (n < 0 || n >= sib.length - 1) {
+    sh = ownShots(it),
+    k = sh.indexOf(shotOf(it));
+  if (k >= 0 && k < sh.length - 1) {
+    S.playing = false;
+    S.shot[it.name] = sh[k + 1];
+    S.ver[it.name] = 0;
+    S.frame = 1;
+    renderProps();
+    renderWide();
+    togglePlay();
+    return;
+  }
+  const only = typeof S.seqPlay === 'string' ? S.seqPlay : null,
+    L = playList(it).filter(i => !omitted(i) && (!only || groupOf(i) === only)),
+    n = L.findIndex(i => i.name === it.name);
+  if (n < 0 || n >= L.length - 1) {
     // The last one: stopped there (the choice Next kept for the next time).
     clearInterval(playT);
     S.playing = false;
     syncPlay();
-    msg(T('End of the sequence {seq}', { seq: groupOf(it) }));
+    msg(only ? T('End of the sequence {seq}', { seq: only }) : T('End of the list'));
     renderWide();
     return;
   }
-  // The next one from its start, playing on (the one before ended: paused).
+  // The next one from its start (a block: its first sub-shot), playing on.
+  const nx = L[n + 1];
+  delete S.shot[nx.name];
+  S.ver[nx.name] = 0;
   S.playing = false;
-  select(sib[n + 1].name, { open: false });
+  select(nx.name, { open: false });
   togglePlay();
 }
 const RF = {};

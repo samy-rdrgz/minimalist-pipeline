@@ -938,7 +938,8 @@ document.addEventListener('click', e => {
     S.sel = f.name;
     S.wide = true;
     S.frame = 1;
-    S.seqPlay = true;
+    delete S.shot[f.name]; // a block: from its first sub-shot
+    S.seqPlay = sq.dataset.seq; // this sequence, stopped at its end
     renderAll();
     if (!S.playing) togglePlay();
     msg(T('Playing {seq}: the shots one after the other', { seq: sq.dataset.seq }));
