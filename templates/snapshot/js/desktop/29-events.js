@@ -10,6 +10,11 @@ function v6Click(t) {
     setTimeout(() => tour(0), 50);
     return true;
   }
+  if (t.closest('[data-bdrop]')) {
+    LS.set('mp-snapshot.backdrop', bdropOn() ? '0' : '');
+    syncBackdrop();
+    return true;
+  }
   const th = t.closest('[data-theme]');
   if (th) {
     setTheme(th.dataset.theme);

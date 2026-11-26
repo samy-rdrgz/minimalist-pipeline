@@ -27,6 +27,8 @@ MPI18n.add('fr',{
 'worker · rendering {file}':'worker · rendu de {file}',
 'worker · idle':'worker · libre',
 'farm host':'hôte de la farm',
+'Picture in the background':'Image en fond',
+"the file's, blurred":'celle du fichier, floutée',
 'Update links':'Mise à jour des liens',
 'Opening in Blender':'Ouverture dans Blender',
 'Rushes':'Rushes',

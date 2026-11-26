@@ -6,6 +6,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- **Live page, a picture in the background**: the selected file's
+  thumbnail (the Farm: the selected job's file) fills the screen, blurred,
+  its colours kept but pastel and its light evened out (a dark theme's
+  lightness, a light one's) so what lies over it stays readable. The main
+  areas stay opaque; the gaps between them, the top bar, and the secondary
+  bars (the status bar, Watch large's header) let it through, as glass.
+  Menu > Picture in the background turns it off (this browser).
 - **A version's note**: Increment (and Increment as stable) has an optional
   *What changed* line -- "fixed the arm", "cam rescaled" -- kept in the
   version's `.wipmeta` / `.stablemeta` (`note`), written in the log, shown

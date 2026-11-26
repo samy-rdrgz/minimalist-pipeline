@@ -294,6 +294,9 @@ function setTheme(t) {
   fitViewport();
   closeMenus();
   if (S.ws === 'links') requestAnimationFrame(drawGraph);
+  try {
+    syncBackdrop(); // its picture's light made for the theme (not yet at boot: run after)
+  } catch (_) {}
 }
 /* A new shot or asset, as Blender's New shot / New asset: the sequence (or prefix) fixed by where it's
    asked, the shot prefix the project's; a shot's numbers each with its start frame, the end, the name
