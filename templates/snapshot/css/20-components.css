@@ -2045,10 +2045,16 @@ body::before {
 body::after {
   background: color-mix(in srgb, var(--screen) 55%, transparent);
 }
-.statusbar {
+.statusbar,
+.ws,
+.review-chip {
   background: color-mix(in srgb, var(--head) 55%, transparent) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+}
+/* The header's right end on the areas' right edge (the review's bar against it). */
+.topbar {
+  padding-right: 0;
 }
 /* Its backdrop (--wbg, the shot's picture): filling the screen, blurred, under the screen's
    grey at 72 % -- the panels keep their own backgrounds over it. */

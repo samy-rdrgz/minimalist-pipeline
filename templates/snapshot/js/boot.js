@@ -85,7 +85,7 @@ function evenBackdrop(src) {
       x.drawImage(im, 0, 0, w, h);
       const d = x.getImageData(0, 0, w, h),
         p = d.data,
-        L = ui === 'light' ? 0.8 : 0.32,
+        L = ui === 'light' ? 0.84 : 0.4,
         SMAX = 0.45; // pastel: its saturation capped
       for (let i = 0; i < p.length; i += 4) {
         const r = p[i] / 255,

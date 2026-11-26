@@ -36,6 +36,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, a new asset: Add to my review did nothing (an asset has no
+  shots: the page stopped there). Fixed.
+- Live page, New shot / New asset: its sequence (a number: a new one makes
+  a new sequence, its first shot 010) or its prefix (the project's) changed
+  in the dialog; Menu > New shot… / New asset… open it from anywhere.
+- Background picture: a little lighter; the workspace tabs' bar and the
+  review's bar glass too; the header's right end on the areas' edge.
 - Live page, Watch large: Next plays a block's sub-shots one after the
   other, then the next shot of the list as filtered (To check, a search...),
   across sequences -- it played a block's first sub-shot only, stopped at the
