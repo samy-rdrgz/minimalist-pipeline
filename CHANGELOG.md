@@ -4,8 +4,21 @@ All notable changes to this addon. Dates are release dates.
 
 ## Unreleased
 
+### Added
+
+- **A project without validation**: Project settings › *Validation*
+  ("validation": false in project_config.json, its roles kept for when it's
+  ticked again). Unticked, nobody validates -- a done department is
+  finished --, and the live page and the snapshots show no role, no
+  Validate, no To validate (filters, To do, a review's path), no Validated
+  (bars, figures, the curve, the legend); a review is the team's. In
+  Blender, Preferences' User role greyed for that project.
+
 ### Changed
 
+- Live page, Breakdown: the tables and the figures on top compact -- a thin
+  bar a cell, the rows close, the tiles on one row: every sequence at a
+  glance.
 - Live page, the list: the rows' stripes start with the darker one (a
   sequence's header and its departments' line are the light ones: a
   sequence of one shot was one light block), and a band of the screen's

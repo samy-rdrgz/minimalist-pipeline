@@ -55,11 +55,11 @@ function reviewPop(btn) {
     r0 = role0();
   p.innerHTML = `<h4>${T('Start a review')}</h4>
     <div class="prop"><span class="k">${T('Name')}</span><span class="v"><label class="field" style="flex:1"><input id="rv-name" value="${esc(M.live.user || '')}" aria-label="${T('Your name')}"></label></span></div>
-    <div class="prop"><span class="k">${T('Role')}</span><span class="v"><span class="join full" style="flex:1">${M.roles.map(r => `<button class="btn" data-role="${r}" aria-pressed="${r === r0}">${r}</button>`).join('')}<button class="btn" data-role="team" aria-pressed="${r0 === TEAM}">team</button></span></span></div>
-    <p class="hint" id="rv-help">${esc(roleHelp(r0))}</p>
+    <div class="prop" ${VAL() ? '' : 'style="display:none"'}><span class="k">${T('Role')}</span><span class="v"><span class="join full" style="flex:1">${M.roles.map(r => `<button class="btn" data-role="${r}" aria-pressed="${r === r0}">${r}</button>`).join('')}<button class="btn" data-role="team" aria-pressed="${r0 === TEAM}">team</button></span></span></div>
+    <p class="hint" id="rv-help" ${VAL() ? '' : 'hidden'}>${esc(roleHelp(r0))}</p>
     <div class="prop" style="align-items:start"><span class="k" style="padding-top:5px">${T('Path')}</span><span class="v" style="flex-direction:column;align-items:stretch">
-      <button class="btn" data-path="val" aria-pressed="true">${T('To validate')} <span class="n">${sh.filter(toValidate).length}</span></button>
-      <button class="btn" data-path="rtk" aria-pressed="false">${T('Open retakes')} <span class="n">${sh.filter(i => openRtk(i)).length}</span></button>
+      <button class="btn" data-path="val" aria-pressed="${VAL()}" ${VAL() ? '' : 'style="display:none"'}>${T('To validate')} <span class="n">${sh.filter(toValidate).length}</span></button>
+      <button class="btn" data-path="rtk" aria-pressed="${!VAL()}">${T('Open retakes')} <span class="n">${sh.filter(i => openRtk(i)).length}</span></button>
       <button class="btn" data-path="" aria-pressed="false">${T('Everything, in order')}</button></span></div>
     <button class="btn primary" id="rv-go">${T('Start')}</button>`;
   host.appendChild(p);
@@ -73,7 +73,10 @@ function reviewPop(btn) {
     const pa = e.target.closest('[data-path]');
     if (pa) p.querySelectorAll('[data-path]').forEach(b => b.setAttribute('aria-pressed', b === pa));
     if (e.target.closest('#rv-go')) {
-      startReview($('#rv-name').value, p.querySelector('[data-role][aria-pressed=true]').dataset.role);
+      startReview(
+        $('#rv-name').value,
+        p.querySelector('[data-role][aria-pressed=true]')?.dataset.role || TEAM
+      );
       S.quick = p.querySelector('[data-path][aria-pressed=true]').dataset.path || null;
       if (!S.wide) {
         if (S.ws !== 'asset') S.ws = 'shot'; // on Assets (a first asset to add): stays there
@@ -142,7 +145,8 @@ function fitTop() {
     ws = $('#ws');
   if (!bar || !ws) return;
   bar.classList.remove('tb-ic');
-  if (ws.scrollWidth > ws.clientWidth + 1 || bar.scrollWidth > bar.clientWidth + 1) bar.classList.add('tb-ic');
+  if (ws.scrollWidth > ws.clientWidth + 1 || bar.scrollWidth > bar.clientWidth + 1)
+    bar.classList.add('tb-ic');
 }
 if (window.ResizeObserver && document.querySelector('.topbar'))
   new ResizeObserver(() => fitTop()).observe(document.querySelector('.topbar'));

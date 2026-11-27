@@ -19,7 +19,7 @@ function renderQuick() {
   q.push(
     ['rtk', T('Retakes'), pool.filter(i => openRtk(i)).length, glyph('done', 'rtk', 1)],
     ['notes', T('Notes'), pool.filter(i => openNotes(i)).length, ic('i-note')],
-    ['val', T('To validate'), pool.filter(toValidate).length, glyph('done')]
+    ...(VAL() ? [['val', T('To validate'), pool.filter(toValidate).length, glyph('done')]] : [])
   );
   const nm = S.more.size + (S.dept ? 1 : 0);
   // On a narrow screen the filters fold behind one button (the active ones counted on it).
@@ -118,7 +118,7 @@ function renderList() {
         return `<div class="grp ${S.closed.has(g) ? 'closed' : ''}" data-g="${g}">
       <div class="grp-h"><button class="ttl" data-fold="${g}" aria-expanded="${!S.closed.has(g)}">${ic('b-downarrow_hlt', 'i tri open')}${ic('b-rightarrow', 'i tri shut')}<b>${g}</b><span class="cnt">${S.ws === 'shot' ? T('{n} shot|{n} shots', { n: its.length }) : T('{n} file|{n} files', { n: its.length })}</span></button>
         ${S.ws === 'shot' ? `<button class="btn sm play" data-seq="${g}" title="${T('The last videos of {seq}, one after the other', { seq: g })}">${ic('b-play')}${T('Play the sequence')}</button>` : ''}${S.review ? `<button class="btn sm tool" data-plan="${g}" data-k="${S.ws}" title="${S.ws === 'shot' ? T('A new shot in {seq}, made when the review is imported', { seq: g }) : T('A new file {prefix}_…, made when the review is imported', { prefix: g })}">${ic('b-add')}${S.ws === 'shot' ? T('shot') : T('asset')}</button>` : ''}
-        <span class="prog"><span class="bar" style="--p:${(ad || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(ad)}"><span class="bl">${T('Done')}</span><i></i><span>${pct(ad)}</span></span><span class="bar" style="--p:${(av || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(av)}"><span class="bl">${T('Validated')}</span><i></i><span>${pct(av)}</span></span></span></div>
+        <span class="prog"><span class="bar" style="--p:${(ad || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(ad)}"><span class="bl">${T('Done')}</span><i></i><span>${pct(ad)}</span></span>${VAL() ? `<span class="bar" style="--p:${(av || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(av)}"><span class="bl">${T('Validated')}</span><i></i><span>${pct(av)}</span></span>` : ''}</span></div>
       <div class="rows"><div class="cols"><span class="c-th"></span><span>${T('File')}</span>${dl.map(d => `<span class="cd" title="${LBL[d]}">${LBL[d]}</span>`).join('')}<span class="c-prog">${T('Progress')}</span>${farmCol() ? `<span class="c-fm">${T('Renders')}</span>` : ''}</div>
       ${its.map(rowHTML).join('')}${S.planned.map((p, n) => (p.g === g && p.kind === S.ws ? plannedRow(p, n) : '')).join('')}${
         hid.length && !filt
@@ -179,7 +179,7 @@ function rowHTML(it) {
     <span class="fname"><span class="n" title="${it.name}">${it.name}</span>${it.desc ? `<span class="d" title="${esc(it.desc)}">${esc(it.desc)}</span>` : ''}
       <span class="m"><span class="ver">${[it.wip, it.stable && 'stable ' + it.stable].filter(Boolean).join(' · ')}${it.shots && it.shots.length ? ' · ' + T('{n} shot|{n} shots', { n: it.shots.length }) : ''}</span>${tags.join('')}</span></span>
     <span class="depts">${dl.map(d => cellHTML(it, d)).join('')}</span>
-    <span class="bars"><span class="bar bare" style="--p:${(it.done || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(it.done)}"><i></i><span>${pct(it.done)}</span></span><span class="bar bare" style="--p:${(fv || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(fv)}"><i></i><span>${pct(fv)}</span></span></span>${farmCol() ? farmCell(it) : ''}
+    <span class="bars"><span class="bar bare" style="--p:${(it.done || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(it.done)}"><i></i><span>${pct(it.done)}</span></span>${VAL() ? `<span class="bar bare" style="--p:${(fv || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(fv)}"><i></i><span>${pct(fv)}</span></span>` : ''}</span>${farmCol() ? farmCell(it) : ''}
   </div>`;
 }
 /* The Farm column: a file's job -- its state, and while it
@@ -263,7 +263,7 @@ const RPARTS = [
   ['fresh', 'var(--text-2)', 'Up to date', '{n} up to date'],
   ['old', 'color-mix(in srgb, var(--text-2) 35%, transparent)', 'Outdated', '{n} outdated']
 ];
-const sParts = () => (S.sview === 'render' ? RPARTS : SPARTS);
+const sParts = () => (S.sview === 'render' ? RPARTS : SPARTS.filter(p => p[0] !== 'val' || VAL()));
 function renderOf(i, x) {
   if ((i.rc || []).includes(x)) return 'chk';
   const rf = (i.rf || {})[x];
@@ -317,7 +317,7 @@ function renderSynth() {
   const bar = (p, c, l) =>
     `<span class="sf ${p >= IN ? 'in' : ''}" style="--p:${p * 100}%;--c:${c}"><span class="lab ${p >= 0.45 ? 'on' : ''}">${l}</span><b class="v">${pct(p)}</b></span>`;
   const kp = (t, p, v) =>
-    `<div class="kpi"><span class="t">${t}</span>${bar(p, 'var(--st-done)', T('Done'))}${bar(v, 'var(--st-val)', T('Validated'))}</div>`;
+    `<div class="kpi"><span class="t">${t}</span>${bar(p, 'var(--st-done)', T('Done'))}${VAL() ? bar(v, 'var(--st-val)', T('Validated')) : ''}</div>`;
   L.innerHTML = `<div class="kpis">${kp(T('Shots'), M.progress.shot, M.validation.shot)}${kp(T('Assets'), M.progress.asset, M.validation.asset)}
     <div class="kpi"><span class="t">${T('Open retakes')}</span><span class="big">${items.reduce((a, i) => a + openRtk(i), 0)}</span><span class="faint">${T('on {n} file|on {n} files', { n: items.filter(openRtk).length })}</span></div>
     ${M.schedule ? `<div class="kpi"><span class="t">${T('Schedule · day {d} / {total}', { d: M.schedule.elapsed_days, total: M.schedule.total_days })}</span><span class="sf sch ${M.progress.shot >= IN ? 'in' : ''}" style="--p:${M.progress.shot * 100}%;--c:var(--st-done);--e:${M.schedule.expected * 100}%" title="${T('The line: where the shots should be today')}"><span class="lab ${M.progress.shot >= 0.45 ? 'on' : ''}">${T('Shots done')}</span><b class="v">${pct(M.progress.shot)}</b><i class="mk2"></i></span><span class="faint">${T('expected {pct}', { pct: pct(M.schedule.expected) })} · ${M.progress.shot < M.schedule.expected ? '<span class="bad">' + T('{n} points behind', { n: Math.round((M.schedule.expected - M.progress.shot) * 100) }) + '</span>' : T('on time')}</span></div>` : ''}
@@ -334,12 +334,17 @@ function otPoints() {
     .map(([day, p]) => {
       const k = (p || {})[key] || {},
         x = o.dept ? (k.departments || {})[o.dept] || {} : k;
-      return { day, done: x.done ?? null, val: x.validated ?? null };
+      return { day, done: x.done ?? null, val: VAL() ? (x.validated ?? null) : null };
     })
     .filter(p => p.done != null || p.val != null);
   const today = new Date().toISOString().slice(0, 10);
   if (!o.dept && !pts.some(p => p.day === today) && M.progress[o.kind] != null)
-    pts.push({ day: today, done: M.progress[o.kind], val: M.validation[o.kind] ?? null, now: true });
+    pts.push({
+      day: today,
+      done: M.progress[o.kind],
+      val: VAL() ? (M.validation[o.kind] ?? null) : null,
+      now: true
+    });
   return pts.sort((a, b) => (a.day < b.day ? -1 : 1));
 }
 function overTime() {
@@ -352,10 +357,20 @@ function overTime() {
     pt = 12,
     pb = 26;
   const deps = DEPTS[o.kind] || [];
-  const head = `<div class="ot-h"><b>${T('Over time')}</b><span class="join">${[['', T('Until today')], ['ahead', T('Projection')]].map(([k, l]) => `<button class="btn sm" data-otv="${k}" aria-pressed="${(o.view || '') === k}">${l}</button>`).join('')}</span><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
+  const head = `<div class="ot-h"><b>${T('Over time')}</b><span class="join">${[
+    ['', T('Until today')],
+    ['ahead', T('Projection')]
+  ]
+    .map(
+      ([k, l]) =>
+        `<button class="btn sm" data-otv="${k}" aria-pressed="${(o.view || '') === k}">${l}</button>`
+    )
+    .join(
+      ''
+    )}</span><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
     <span class="anchor"><button class="enum" data-menu="m-otd" aria-haspopup="true" aria-expanded="false"><span class="lb">${o.dept ? esc(LBL[o.dept]) : T('All departments')}</span>${ic('b-downarrow_hlt')}</button><div class="menu" id="m-otd" hidden role="menu">${['', ...deps].map(d => `<button class="mi" data-otd="${esc(d)}"><span class="ck">${d === o.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(LBL[d]) : T('All departments')}</span></button>`).join('')}</div></span>
     <button class="btn flat icon live-only" data-otreload aria-label="${T('Read the project again')}" title="${T("Read the project again: today's point brought up to date")}">${ic('b-file_refresh')}</button>
-    <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Done')}<i style="--c:var(--st-val)"></i>${T('Validated')}${M.schedule ? `<i class="pj-sch"></i>${T('Schedule')}` : ''}</span></div>`;
+    <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Done')}${VAL() ? `<i style="--c:var(--st-val)"></i>${T('Validated')}` : ''}${M.schedule ? `<i class="pj-sch"></i>${T('Schedule')}` : ''}</span></div>`;
   // Projection: the same days, then where their pace leads (21-projection.js), on the same header.
   if (o.view === 'ahead') return projection(head);
   if (pts.length < 2)

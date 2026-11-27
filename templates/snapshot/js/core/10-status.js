@@ -141,7 +141,11 @@ const openRtk = it => rtkNotes(it).length + it.myNotes.filter(n => n.type === 'r
 // A validation's own line is a record, not a note: never counted.
 const openNotes = it => it.notes.filter(n => !n.done && !n.approval).length + it.myNotes.length;
 const omitted = it => (it.setAside !== undefined ? it.setAside : it.omit)?.state;
+/* Project settings › Validation: off, nothing of validation shown (roles, Validate, To validate,
+   Validated) -- a page of before, on. */
+const VAL = () => M.val_on !== false;
 const toValidate = it =>
+  VAL() &&
   !omitted(it) &&
   required(it).some(d => ['done', 'rework'].includes(it.states[d]) && !it.ok[d] && !it.rtk[d] && !it.mine[d]);
 const touched = it =>

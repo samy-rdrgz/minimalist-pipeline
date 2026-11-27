@@ -804,6 +804,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     meta["fps"] = json_get(config, "default_fps", 30)
     meta["validation_roles"] = roles
     meta["validation_role"] = top_role
+    # Project settings › Validation: off, the page shows nothing of validation.
+    meta["validation_on"] = config.get("validation") is not False
     # What a new shot or asset may be called, created from the page.
     meta["team"] = list(config.get("team") or [])
     meta["naming"] = {

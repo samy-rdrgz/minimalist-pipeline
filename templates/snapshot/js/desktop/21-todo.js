@@ -18,7 +18,7 @@ function tdSt() {
 const TD_ST = () => [
   ['', T('Everything')],
   ['work', T('To work on')],
-  ['val', T('To validate')]
+  ...(VAL() ? [['val', T('To validate')]] : [])
 ];
 /* Whose departments: everyone assigned somewhere in the project (me among them). */
 function tdPeople() {

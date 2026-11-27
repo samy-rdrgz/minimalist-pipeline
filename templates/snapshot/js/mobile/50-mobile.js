@@ -15,6 +15,8 @@ const mSib = () =>
         (S.m.filter === 'val' ? toValidate(i) : S.m.filter === 'rtk' ? openRtk(i) > 0 : openNotes(i) > 0))
   );
 const mF = { '': T('Everything'), val: T('To validate'), rtk: T('Retakes'), note: T('Notes') };
+/* The paths offered: To validate only with validation on (Project settings). */
+const mFs = () => Object.entries(mF).filter(([x]) => x !== 'val' || VAL());
 const mShort = it => (it.kind === 'shot' ? it.name.replace(it.group + '_', '') : it.name);
 const mGl = it =>
   DEPTS[it.kind]
@@ -196,7 +198,7 @@ function mDept(it, d) {
       ${rv ? `<button class="m-as ${a.length ? '' : 'none'} ${it.assign && d in it.assign ? 'chg' : ''}" data-msheet="as:${d}">${ic('b-user')}<span>${a.length ? esc(a.join(', ')) : T('Assign')}</span></button>` : a.length ? `<span class="m-as ro">${ic('b-user')}<span>${esc(a.join(', '))}</span></span>` : ''}</div>
     ${
       rv
-        ? `<div class="m-da"><button class="btn ok" data-mval="${d}" aria-pressed="${m === 'val'}" ${rv.role === TEAM || !canVal(it, d) ? 'disabled' : ''}>${ic('b-checkmark')}${m === 'val' ? T('Validated') : T('Validate')}</button>
+        ? `<div class="m-da"><button class="btn ok" data-mval="${d}" aria-pressed="${m === 'val'}" ${rv.role === TEAM || !canVal(it, d) ? 'disabled' : ''} ${VAL() ? '' : 'style="display:none"'}>${ic('b-checkmark')}${m === 'val' ? T('Validated') : T('Validate')}</button>
       <button class="btn alert" data-mrtk="${d}" aria-pressed="${m === 'rtk'}">${ic('b-x')}${m === 'rtk' ? T('Retake · you') : 'Retake'}</button>
       ${d in it.marked || canMark(it, d) ? `<button class="btn ${d in it.marked ? 'ok' : 'tool'} m-span" data-mark="${d}" aria-pressed="${d in it.marked}">${ic('b-checkmark')}${T('Mark done')} <small>${esc(it.stable || '')}</small></button>` : ''}
       ${f.to_redo ? `<button class="btn ${it.still[d] ? 'ok' : 'tool'} m-span" data-still="${d}" aria-pressed="${!!it.still[d]}">${ic('b-checkmark')}${T('Still done')} <small>${esc(f.to_redo)}</small></button>` : ''}</div>`
@@ -277,7 +279,7 @@ function mSheet() {
     ]
       .map(([x, l]) => `<button class="btn" data-mkind="${x}" aria-pressed="${S.m.kind === x}">${l}</button>`)
       .join('')}</span>
-      <div class="m-filters">${Object.entries(mF)
+      <div class="m-filters">${mFs()
         .map(
           ([x, l]) =>
             `<button class="m-chip ${S.m.filter === x ? 'on' : ''}" data-mfilter="${x}">${l}<span class="n">${cnt(x)}</span></button>`
@@ -350,9 +352,9 @@ function mSheet() {
   if (k === 'start') {
     t = T('Start the review');
     h = `<label class="field"><input id="m-name" value="${esc(M.live.user || '')}" placeholder="${T('Your name')}" aria-label="${T('Your name')}" autocomplete="name"></label>
-      <span class="join full">${[...M.roles, TEAM].map(r => `<button class="btn" data-mrole="${r}" aria-pressed="${r === (S.m.role || role0())}">${r}</button>`).join('')}</span>
-      <p class="m-hint">${esc(roleHelp(S.m.role || role0()))}</p>
-      <div class="m-sec-h">${T('Path')}</div>${Object.entries(mF)
+      <span class="join full" ${VAL() ? '' : 'style="display:none"'}>${[...M.roles, TEAM].map(r => `<button class="btn" data-mrole="${r}" aria-pressed="${r === (S.m.role || role0())}">${r}</button>`).join('')}</span>
+      <p class="m-hint" ${VAL() ? '' : 'hidden'}>${esc(roleHelp(S.m.role || role0()))}</p>
+      <div class="m-sec-h">${T('Path')}</div>${mFs()
         .map(([x, l]) =>
           opt(`data-mfilter="${x}" data-keep`, S.m.filter === x, l, x === '' ? T('every shot, in order') : '')
         )
@@ -424,6 +426,7 @@ function mSheet() {
         ['done', null, T('Rendered since its last session'), '', 1],
         ['done', null, T('Render to check'), '', 'chk']
       ]
+        .filter(([b]) => VAL() || b !== 'val')
         .map(([b, c, l, n, r]) => `<li>${glyph(b, c, 1, !!n, r)}<span>${l}</span></li>`)
         .join('')}</ul>
       <p class="m-hint">${T('Links, breakdown, file settings and more filters: the desktop version.')}</p>

@@ -1356,18 +1356,19 @@ body.out-open .scrim {
 }
 .kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(calc(200px * var(--scale)), 1fr));
-  gap: var(--sp-6);
+  /* Compact: the tiles on one row on a desktop's width. */
+  grid-template-columns: repeat(auto-fit, minmax(calc(150px * var(--scale)), 1fr));
+  gap: var(--sp-4);
   padding: var(--sp-7);
 }
 .kpi {
   background: var(--box);
   border: 1px solid var(--line);
   border-radius: var(--r-l);
-  padding: var(--sp-7);
+  padding: var(--sp-5) var(--sp-6);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-5);
+  gap: var(--sp-3);
 }
 .kpi .t {
   color: var(--text-2);
@@ -3265,11 +3266,28 @@ button.assign:hover {
 
 .stab {
   display: grid;
-  grid-template-columns: minmax(120px, 1.2fr) repeat(var(--nd), minmax(70px, 1fr)) minmax(70px, 1fr);
-  gap: var(--sp-3) var(--sp-4);
-  padding: var(--sp-6) var(--sp-7) var(--sp-7);
+  grid-template-columns: minmax(100px, 0.8fr) repeat(var(--nd), minmax(64px, 1fr)) minmax(64px, 1fr);
+  /* Compact: every sequence at a glance -- a thin bar a cell, rows close together. */
+  gap: 2px var(--sp-3);
+  padding: var(--sp-3) var(--sp-7) var(--sp-5);
   align-items: center;
   overflow-x: auto;
+}
+.stab .sf,
+.stab .sn {
+  height: calc(20px * var(--scale));
+}
+.stab .sf {
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-s);
+}
+.stab .sf .v {
+  padding: 0 var(--sp-3);
+  line-height: 1.2;
+  font-size: var(--fs-xs);
+}
+.stab .sh {
+  padding-bottom: var(--sp-1);
 }
 .stab .sh {
   color: var(--text-3);
