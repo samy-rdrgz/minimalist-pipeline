@@ -16,8 +16,10 @@ All notable changes to this addon. Dates are release dates.
 
 - Live page, Breakdown › Over time › **Files by state**: how many files to
   do, in progress, done and validated, day after day, stacked -- the
-  rectangle of every file filling up; the schedule dotted (the files it
-  expects finished); a day's counts on hover. In place of the Done /
+  rectangle of every file filling up, its layers smoothed (each count
+  averaged over the days around it: the trend, not each day's ups and
+  downs); the exact counts on hover and at its end; the schedule dotted
+  (the files it expects finished). In place of the Done /
   Validated curve (Projection keeps it). The progress log notes each day's
   files by state ("states", by department too); **Migrate old data**
   (offered again: migration "2.1") rebuilds them for the days before.

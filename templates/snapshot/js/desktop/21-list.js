@@ -407,19 +407,12 @@ function stNow(kind, dept) {
     .forEach(i => out[dept ? stDep(i, dept) : stFile(i)]++);
   return out;
 }
-/* A layer's edge through its points (x, y), its first one already reached: STSHAPE "step" (a value held
-   until the next day, then the jump), "smooth" (a monotone curve: never past its points), else straight. */
-const STSHAPE = new URLSearchParams(location.search).get('stshape') || '';
-function stLine(xs, ys, back) {
+/* A layer's edge through its points (x, y), its first one already reached: a monotone curve (never past
+   its points, no bump made up), the same whichever way it's gone along. */
+function stLine(xs, ys) {
   const n = xs.length,
     f = v => v.toFixed(1);
-  // Back (a layer's lower edge, right to left): the same stairs, gone down the other way.
-  if (STSHAPE === 'step')
-    return xs
-      .slice(1)
-      .map((x, i) => (back ? ` V${f(ys[i + 1])} H${f(x)}` : ` H${f(x)} V${f(ys[i + 1])}`))
-      .join('');
-  if (STSHAPE !== 'smooth' || n < 3)
+  if (n < 3)
     return xs
       .slice(1)
       .map((x, i) => ` L${f(x)} ${f(ys[i + 1])}`)
@@ -470,17 +463,19 @@ function statesChart(head) {
   pts.sort((a, b) => (a.day < b.day ? -1 : 1));
   if (pts.length < 2)
     return `<div class="ot">${head}<p class="faint ot-empty">${T('Files by state, a point a day from today on. The days before: Migrate old data (Blender, the project panel) rebuilds them.')}</p></div>`;
-  // Stairs: the last value held a day too -- today's own step, not a jump at the edge.
-  const draw =
-    STSHAPE === 'step'
-      ? [
-          ...pts,
-          {
-            ...pts[pts.length - 1],
-            day: new Date(Date.parse(pts[pts.length - 1].day) + 864e5).toISOString().slice(0, 10)
-          }
-        ]
-      : pts;
+  // Drawn: each state's count averaged over the days around (a fortnight on a short production, more on a
+  // long one) -- the trend, not each day's ups and downs; the exact counts on hover and at the end.
+  const span = (Date.parse(pts[pts.length - 1].day) - Date.parse(pts[0].day)) / 864e5,
+    half = Math.max(3, Math.round(span / 20)) * 864e5,
+    ts = pts.map(p => Date.parse(p.day));
+  const draw = pts.map((p, i) => {
+    const near = pts.filter((_, j) => Math.abs(ts[j] - ts[i]) <= half),
+      s = {};
+    ['todo', 'wip', 'done', 'val'].forEach(
+      k => (s[k] = near.reduce((a, q) => a + (q.s[k] || 0), 0) / near.length)
+    );
+    return { day: p.day, s };
+  });
   const L = ST_LAYERS(),
     tot = p => L.reduce((a, [k]) => a + (p.s[k] || 0) + (k === 'done' && !VAL() ? p.s.val || 0 : 0), 0),
     top = Math.max(1, ...pts.map(tot)),
@@ -502,9 +497,9 @@ function statesChart(head) {
     const up = draw.map((p, i) => base[i] + val(p, k));
     const xs = draw.map(p => X(p.day)),
       rx = [...xs].reverse();
-    paths += `<path d="M${xs[0].toFixed(1)} ${Y(up[0]).toFixed(1)}${stLine(xs, up.map(Y))} L${rx[0].toFixed(1)} ${Y(base[base.length - 1]).toFixed(1)}${stLine(rx, [...base].reverse().map(Y), true)} Z" style="fill:${c}"/>`;
+    paths += `<path d="M${xs[0].toFixed(1)} ${Y(up[0]).toFixed(1)}${stLine(xs, up.map(Y))} L${rx[0].toFixed(1)} ${Y(base[base.length - 1]).toFixed(1)}${stLine(rx, [...base].reverse().map(Y))} Z" style="fill:${c}"/>`;
     const n = draw.length - 1,
-      v = val(draw[n], k);
+      v = val(pts[n], k); // its exact count today
     if (v) labs.push({ y: Y((up[n] + base[n]) / 2), t: `${l()} ${v}` });
     base = up;
   });
