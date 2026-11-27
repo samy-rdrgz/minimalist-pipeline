@@ -407,6 +407,50 @@ function stNow(kind, dept) {
     .forEach(i => out[dept ? stDep(i, dept) : stFile(i)]++);
   return out;
 }
+/* A layer's edge through its points (x, y), its first one already reached: STSHAPE "step" (a value held
+   until the next day, then the jump), "smooth" (a monotone curve: never past its points), else straight. */
+const STSHAPE = new URLSearchParams(location.search).get('stshape') || '';
+function stLine(xs, ys, back) {
+  const n = xs.length,
+    f = v => v.toFixed(1);
+  // Back (a layer's lower edge, right to left): the same stairs, gone down the other way.
+  if (STSHAPE === 'step')
+    return xs
+      .slice(1)
+      .map((x, i) => (back ? ` V${f(ys[i + 1])} H${f(x)}` : ` H${f(x)} V${f(ys[i + 1])}`))
+      .join('');
+  if (STSHAPE !== 'smooth' || n < 3)
+    return xs
+      .slice(1)
+      .map((x, i) => ` L${f(x)} ${f(ys[i + 1])}`)
+      .join('');
+  // Fritsch-Carlson: each point's tangent from its neighbours' slopes, flattened where they disagree.
+  const d = xs.slice(1).map((x, i) => (ys[i + 1] - ys[i]) / (x - xs[i] || 1)),
+    m = xs.map((_, i) =>
+      i === 0 ? d[0] : i === n - 1 ? d[n - 2] : d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2
+    );
+  for (let i = 0; i < n - 1; i++) {
+    if (d[i] === 0) {
+      m[i] = m[i + 1] = 0;
+      continue;
+    }
+    const a = m[i] / d[i],
+      b = m[i + 1] / d[i],
+      h = a * a + b * b;
+    if (h > 9) {
+      const t = 3 / Math.sqrt(h);
+      m[i] = t * a * d[i];
+      m[i + 1] = t * b * d[i];
+    }
+  }
+  return xs
+    .slice(1)
+    .map((x, i) => {
+      const h = (x - xs[i]) / 3;
+      return ` C${f(xs[i] + h)} ${f(ys[i] + m[i] * h)} ${f(x - h)} ${f(ys[i + 1] - m[i + 1] * h)} ${f(x)} ${f(ys[i + 1])}`;
+    })
+    .join('');
+}
 /* Breakdown › Over time › Files by state: how many files in each state, day after day (progress_log.py
    "states"), stacked -- the rectangle of every file filling up; the schedule's even pace dotted (the files
    it expects finished). The days logged before 2.1: rebuilt by Migrate old data. */
@@ -426,6 +470,17 @@ function statesChart(head) {
   pts.sort((a, b) => (a.day < b.day ? -1 : 1));
   if (pts.length < 2)
     return `<div class="ot">${head}<p class="faint ot-empty">${T('Files by state, a point a day from today on. The days before: Migrate old data (Blender, the project panel) rebuilds them.')}</p></div>`;
+  // Stairs: the last value held a day too -- today's own step, not a jump at the edge.
+  const draw =
+    STSHAPE === 'step'
+      ? [
+          ...pts,
+          {
+            ...pts[pts.length - 1],
+            day: new Date(Date.parse(pts[pts.length - 1].day) + 864e5).toISOString().slice(0, 10)
+          }
+        ]
+      : pts;
   const L = ST_LAYERS(),
     tot = p => L.reduce((a, [k]) => a + (p.s[k] || 0) + (k === 'done' && !VAL() ? p.s.val || 0 : 0), 0),
     top = Math.max(1, ...pts.map(tot)),
@@ -436,21 +491,20 @@ function statesChart(head) {
     pt = 12,
     pb = 26,
     t0 = Date.parse(pts[0].day),
-    t1 = Date.parse(pts[pts.length - 1].day),
+    t1 = Date.parse(draw[draw.length - 1].day),
     X = d => pl + ((Date.parse(d) - t0) / (t1 - t0 || 1)) * (W - pl - pr),
     Y = v => pt + (1 - v / top) * (H - pt - pb);
   const val = (p, k) => (p.s[k] || 0) + (k === 'done' && !VAL() ? p.s.val || 0 : 0);
-  let base = pts.map(() => 0),
+  let base = draw.map(() => 0),
     paths = '',
     labs = [];
   L.forEach(([k, c, l]) => {
-    const up = pts.map((p, i) => base[i] + val(p, k));
-    paths += `<path d="M${pts.map((p, i) => `${X(p.day).toFixed(1)} ${Y(up[i]).toFixed(1)}`).join(' L')} L${pts
-      .map((p, i) => `${X(p.day).toFixed(1)} ${Y(base[i]).toFixed(1)}`)
-      .reverse()
-      .join(' L')} Z" style="fill:${c}"/>`;
-    const n = pts.length - 1,
-      v = val(pts[n], k);
+    const up = draw.map((p, i) => base[i] + val(p, k));
+    const xs = draw.map(p => X(p.day)),
+      rx = [...xs].reverse();
+    paths += `<path d="M${xs[0].toFixed(1)} ${Y(up[0]).toFixed(1)}${stLine(xs, up.map(Y))} L${rx[0].toFixed(1)} ${Y(base[base.length - 1]).toFixed(1)}${stLine(rx, [...base].reverse().map(Y), true)} Z" style="fill:${c}"/>`;
+    const n = draw.length - 1,
+      v = val(draw[n], k);
     if (v) labs.push({ y: Y((up[n] + base[n]) / 2), t: `${l()} ${v}` });
     base = up;
   });
