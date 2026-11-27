@@ -115,7 +115,10 @@ function mReview() {
     .join('');
   const rng = rngSelHTML();
   const req = DEPTS[it.kind].filter(d => required(it).includes(d));
-  const notes = [...it.myNotes.map(n => ({ ...n, mine: true })), ...it.notes.filter(n => !n.done && !n.approval)],
+  const notes = [
+      ...it.myNotes.map(n => ({ ...n, mine: true })),
+      ...it.notes.filter(n => !n.done && !n.approval)
+    ],
     closed = it.notes.filter(n => n.done && n.type !== 'note');
   return `<div class="m-shotnav"><button class="m-ib" data-mstep="-1" aria-label="${T('Previous shot')}" ${k <= 0 ? 'disabled' : ''}>${ic('b-tria_left')}</button>
       <button class="m-pick" data-msheet="pick" aria-label="${T('Choose the shot')}"><span class="t"><b>${esc(mShort(it))}</b><small>${esc(groupOf(it))} · ${k < 0 ? T('out of the filter') : k + 1 + ' / ' + sib.length}${S.m.filter ? ' · ' + mF[S.m.filter] : ''}</small></span><span class="gls">${mGl(it)}</span>${ic('b-downarrow_hlt')}</button>
@@ -140,7 +143,7 @@ function mReview() {
         notes
           .map(
             n => `<div class="m-note">${n.frames ? `<button class="ft ${/-/.test(n.frames) ? 'rg' : n.type === 'rtk' ? '' : 'nt'}" data-goto="${(String(n.frames).match(/\d+/) || [1])[0]}">${esc(n.frames)}</button>` : `<span class="ft ${n.type === 'rtk' ? '' : 'nt'}">${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>`}
-        <span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.mine ? T('you, not sent yet') : n.author || ''))}</small>${fixHTML(it, n) ? `<span class="m-nf">${fixHTML(it, n)}</span>` : ''}</span>
+        <span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.mine ? T('you, not sent yet') : n.author || ''))}</small>${mRepHTML(it, n)}${fixHTML(it, n) || (S.review && !n.mine) ? `<span class="m-nf">${fixHTML(it, n)}${S.review && !n.mine ? `<button class="btn sm flat" data-msheet="reply:${esc(n.id)}">${ic('b-file_parent')}${T('Reply')}</button>` : ''}</span>` : ''}</span>
         ${n.mine ? `<button class="m-ib" data-unnote="${n.at}" aria-label="${T('Remove')}">${ic('b-loop_back')}</button>` : ''}</div>`
           )
           .join('') || '<p class="m-hint">' + T('No open note.') + '</p>'
@@ -151,13 +154,27 @@ function mReview() {
               S.m.closed
                 ? closed
                     .map(
-                      n => `<div class="m-note done"><span class="ft nt">${n.type === 'rtk' ? 'RTK' : T('to do')}</span><span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.author || ''))}</small><span class="m-nf">${fixHTML(it, n)}</span></span></div>`
+                      n =>
+                        `<div class="m-note done"><span class="ft nt">${n.type === 'rtk' ? 'RTK' : T('to do')}</span><span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.author || ''))}</small><span class="m-nf">${fixHTML(it, n)}</span></span></div>`
                     )
                     .join('')
                 : ''
             }`
           : ''
       }</section>`;
+}
+/* A note's replies, those sent and mine not sent yet (Take my reply back: the last of mine). */
+function mRepHTML(it, n) {
+  if (n.mine) return '';
+  const mine = it.myReplies[n.id] || [],
+    reps = [...(n.replies || []), ...mine.map(r => ({ ...r, mine: 1 }))];
+  if (!reps.length) return '';
+  return `<span class="m-rep">${reps
+    .map(
+      (r, k) =>
+        `<span class="r"><span class="rt">${esc(r.text || '')}<small>${esc(r.author || '')}${r.mine ? ' · ' + T('you, not sent yet') : ''}</small></span>${r.mine && k === reps.length - 1 ? `<button class="m-ib" data-unreply="${esc(n.id)}" aria-label="${T('Take my reply back')}">${ic('b-loop_back')}</button>` : ''}</span>`
+    )
+    .join('')}</span>`;
 }
 function mDept(it, d) {
   const x = info(it, d),
@@ -358,13 +375,32 @@ function mSheet() {
   }
   if (k === 'menu') {
     t = 'Menu';
-    h = `<div class="m-sec-h">${T('Theme')}</div><span class="join full">${[
-      ['dark', T('Dark')],
-      ['light', T('Light')],
-      ['system', T('System')]
-    ]
-      .map(([x, l]) => `<button class="btn" data-theme="${x}" aria-pressed="${S.theme === x}">${l}</button>`)
-      .join('')}</span>
+    const lang = (() => {
+      try {
+        return (
+          new URLSearchParams(location.search).get('lang') || localStorage.getItem('mp-snapshot.lang') || ''
+        );
+      } catch (_) {
+        return '';
+      }
+    })();
+    h = `${LIVE ? '' : `<button class="btn m-wide" data-mvideos>${ic('b-file_folder')}${T('Choose the videos folder…')}</button>`}
+      <label class="btn m-wide">${ic('b-import')}${T('Load a review…')}<input type="file" class="rv-load" accept=".json,application/json" hidden></label>
+      <div class="m-sec-h">${T('Theme')}</div><span class="join full">${[
+        ['dark', T('Dark')],
+        ['light', T('Light')],
+        ['system', T('System')]
+      ]
+        .map(
+          ([x, l]) => `<button class="btn" data-theme="${x}" aria-pressed="${S.theme === x}">${l}</button>`
+        )
+        .join('')}</span>
+      <div class="m-sec-h">${T('Language')}</div><span class="join full">${[
+        ...document.querySelectorAll('#m-view [data-lang]')
+      ]
+        .map(b => [b.dataset.lang, b.querySelector('.lbl').textContent])
+        .map(([x, l]) => `<button class="btn" data-lang="${x}" aria-pressed="${lang === x}">${l}</button>`)
+        .join('')}</span>
       <div class="m-sec-h">${T('Legend')}</div><ul class="legend-list">${[
         ['done', null, T('Done')],
         ['wip', 'rtk', T('Open retake')],
@@ -383,6 +419,16 @@ function mSheet() {
       <p class="m-hint">${T('Links, breakdown, file settings and more filters: the desktop version.')}</p>
       <a class="brand-f" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener"><svg viewBox="${document.querySelector('.statusbar .brand-f svg').getAttribute('viewBox')}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span><span class="v">${esc(M.addon_version || '')}</span></a>`;
     foot = `${S.review ? '<button class="btn m-wide" data-mstop>' + T('Leave the review') + '</button>' : ''}${mFsOk() ? `<button class="btn m-wide" data-mfull>${ic(mFsOn() ? 'b-fullscreen_exit' : 'b-fullscreen_enter')}${mFsOn() ? T('Leave full screen') : T('Full screen')}</button>` : ''}<button class="btn m-wide" data-mview="desktop">${T('Desktop version')}</button>`;
+  }
+  if (k && k.startsWith('reply:')) {
+    const n = it && it.notes.find(x => x.id === k.slice(6));
+    if (!n || !S.review) {
+      S.m.sheet = null;
+      return '';
+    }
+    t = T('Reply');
+    h = `<p class="m-hint">${esc(n.text || T('(no text)'))}</p><label class="field ta"><textarea id="m-rta" rows="3" placeholder="${T('Your reply…')}" aria-label="${T('Reply')}"></textarea></label>`;
+    foot = `<button class="btn primary m-wide" data-mreply="${esc(n.id)}">${ic('b-file_parent')}${T('Reply')}</button>`;
   }
   if (k && k.startsWith('job:')) {
     const j = F.jobs.find(x => x.id === k.slice(4));
@@ -494,6 +540,22 @@ $('#mob').addEventListener('click', e => {
     if (S.m.sheet === 'render') S.m.rf = null;
     if (S.m.sheet === 'start') S.m.role = null;
     mRender();
+    if (S.m.sheet && S.m.sheet.startsWith('reply:')) $('#m-rta')?.focus();
+    return;
+  }
+  if ((x = q('[data-mreply]'))) {
+    const txt = ($('#m-rta')?.value || '').trim();
+    if (!txt) return;
+    A.reply(cur(), x.dataset.mreply, txt);
+    S.m.sheet = null;
+    refresh();
+    toast(T('Reply added to your review'));
+    return;
+  }
+  if (q('[data-mvideos]')) {
+    S.m.sheet = null;
+    mRender();
+    pickVideos();
     return;
   }
   if (q('[data-mfull]')) {
@@ -635,7 +697,13 @@ $('#mob').addEventListener('click', e => {
       ta = $('#m-ta'),
       txt = wordsOf(ta, toast);
     if (!txt) return;
-    A.note(it, { type: S.m.ctype, dept: S.m.cdept, text: txt, frames: rangeStr(), shot: digits(writeShot(it)) });
+    A.note(it, {
+      type: S.m.ctype,
+      dept: S.m.cdept,
+      text: txt,
+      frames: rangeStr(),
+      shot: digits(writeShot(it))
+    });
     ta.value = '';
     S.rangeStart = null;
     mRender();
@@ -755,7 +823,9 @@ $('#mob').addEventListener(
   'touchstart',
   e => {
     const t = e.touches[0];
-    const on = e.touches.length === 1 && (e.target.closest('#m-player') ? 'shot' : e.target.closest('.m-sheet-h') ? 'sheet' : null);
+    const on =
+      e.touches.length === 1 &&
+      (e.target.closest('#m-player') ? 'shot' : e.target.closest('.m-sheet-h') ? 'sheet' : null);
     mSw = on ? { on, x: t.clientX, y: t.clientY } : null;
   },
   { passive: true }

@@ -2,6 +2,24 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Fixed
+
+- Live page, a file's renders to watch (the version picker, A/B): in the
+  order of its render history, newest first -- no longer by the render
+  folders' own times, which put render folders copied or pasted (a project
+  copied, renders moved) in the order they were written. A folder the
+  history doesn't know (rendered before it, or by hand) is placed by its
+  name, after the render it follows.
+- The phone's page, Menu: *Choose the videos folder…* (a snapshot opened
+  without its videos: the toast pointed to the Menu, which didn't have it;
+  on a phone, the folder or the videos themselves), *Load a review…*, and
+  the language.
+- The phone's page, a review: a note's replies shown under it, and
+  *Reply* to one (taken back with its arrow) -- only the desktop page had
+  them.
+
 ## 2.0.0
 
 ### Added

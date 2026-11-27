@@ -534,6 +534,24 @@ b.ab {
 .m-note .m-nf .btn {
   min-height: var(--h-touch);
 }
+/* Its replies, under its text */
+.m-note .m-rep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding-left: var(--sp-4);
+  border-left: 2px solid var(--line);
+}
+.m-note .m-rep .r {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-start;
+}
+.m-note .m-rep .rt {
+  flex: 1;
+  min-width: 0;
+}
 .m-note.done .tx {
   color: var(--text-3);
 }

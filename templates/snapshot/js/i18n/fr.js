@@ -552,6 +552,7 @@ MPI18n.add('fr',{
 'Reason':'Raison',
 'Red wire: a newer stable exists. Click a node: opens the file.':'Fil rouge : un stable plus récent existe. Clic sur un node : ouvre le fichier.',
 'Remark added to your review':'Remarque ajoutée à votre revue',
+'Reply added to your review':'Réponse ajoutée à votre revue',
 'Remark at this frame…':'Remarque à cette frame…',
 'Remark at {frames} on {dept}':'Remarque à {frames} sur {dept}',
 'Remark written on {name}':'Remarque écrite sur {name}',

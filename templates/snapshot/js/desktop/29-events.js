@@ -1597,6 +1597,7 @@ document.addEventListener('change', e => {
     const f = e.target.files[0];
     e.target.value = '';
     closeMenus();
+    if (isMob()) S.m.sheet = null;
     loadReview(f);
   }
 });
