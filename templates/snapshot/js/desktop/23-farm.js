@@ -8,19 +8,27 @@ const JS = [
 ];
 /* The rendering time left (lib/monitoring/live.py, farm/details.py render_left_parts()):
    {seconds, workers, unknown}, said here in the page's language. */
-const hMin = s => (s >= 3600 ? Math.floor(s / 3600) + ' h ' + String(Math.round((s % 3600) / 60)).padStart(2, '0') : T('{n} min', { n: Math.max(1, Math.round(s / 60)) }));
+const hMin = s =>
+  s >= 3600
+    ? Math.floor(s / 3600) + ' h ' + String(Math.round((s % 3600) / 60)).padStart(2, '0')
+    : T('{n} min', { n: Math.max(1, Math.round(s / 60)) });
 /* A frame's time: "8.5 s", "45 s", "2 min 05 s". */
 const secs = s =>
-  s < 60 ? T('{n} s', { n: s < 10 ? s.toFixed(1) : Math.round(s) }) : T('{m} min {s} s', { m: Math.floor(s / 60), s: String(Math.round(s % 60)).padStart(2, '0') });
+  s < 60
+    ? T('{n} s', { n: s < 10 ? s.toFixed(1) : Math.round(s) })
+    : T('{m} min {s} s', { m: Math.floor(s / 60), s: String(Math.round(s % 60)).padStart(2, '0') });
 /* A render's time left: what its machines' pace says (farm/loop.py _time_left()). */
-const jobLeft = j => (j.left != null && j.state === 'running' && j.total ? T('≃ {time} left', { time: hMin(j.left) }) : '');
+const jobLeft = j =>
+  j.left != null && j.state === 'running' && j.total ? T('≃ {time} left', { time: hMin(j.left) }) : '';
 const farmLeft = L => {
   if (!L) return '';
   if (typeof L === 'string') return L; // a page served by an older Blender
   if (!L.seconds) return L.unknown ? T('{n} not estimated yet', { n: L.unknown }) : '';
   return (
-    T('≃ {time} of rendering left with {n} worker|≃ {time} of rendering left with {n} workers', { time: hMin(L.seconds), n: L.workers }) +
-    (L.unknown ? ' ' + T('(+{n} not estimated)', { n: L.unknown }) : '')
+    T('≃ {time} of rendering left with {n} worker|≃ {time} of rendering left with {n} workers', {
+      time: hMin(L.seconds),
+      n: L.workers
+    }) + (L.unknown ? ' ' + T('(+{n} not estimated)', { n: L.unknown }) : '')
   );
 };
 /* A job's state: a diamond like the departments' statuses (the page's one shape for a state), its
@@ -85,12 +93,29 @@ const jobTags = j =>
         `<span class="tag" title="${t === 'local' ? T('Rendered on its own machine, outside the queue') : T("Drawn by the file's 3D view: its overlays included")}">${t === 'local' ? T('local') : T('viewport')}</span>`
     )
     .join('');
+/* A job's file name, a block's shot rendered alone (or one of a split render) said in it: its number
+   strong, the block's others faint -- sq040_sh030-<b>040</b>-045_v001. The whole block: as is. */
+function jobName(j) {
+  const n = String(j.shot || '').replace(/\D/g, ''),
+    parts = String(j.file).split('_');
+  if (!n || parts.length < 3) return esc(j.file);
+  const m = parts[1].match(/^([a-z]*)(\d+(?:-\d+)+)$/i);
+  if (!m) return esc(j.file);
+  const nums = m[2]
+    .split('-')
+    .map(x => (+x === +n ? `<b class="jsub">${esc(x)}</b>` : `<span class="jsub-o">${esc(x)}</span>`));
+  return [
+    esc(parts[0]),
+    esc(m[1]) + nums.join('<span class="jsub-o">-</span>'),
+    ...parts.slice(2).map(esc)
+  ].join('_');
+}
 function jobRow(j) {
   const p = j.total ? j.done / j.total : 0,
     meta = [j.machines ? T('{n} machine|{n} machines', { n: j.machines }) : '', esc(j.user), fmtD(j.at)]
       .filter(Boolean)
       .join(' · ');
-  return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${esc(j.file)}</span><span class="s">${esc([j.shot, TS(j.text)].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
+  return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${jobName(j)}</span><span class="s">${esc([j.shot, TS(j.text)].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
     <span class="jbar">${
       // An ffmpeg pass (frame check, compilation, preview): its own progress, after the frames'.
       j.compile != null
@@ -142,7 +167,7 @@ function renderFarmDetail(H, B) {
   const it = jobItem(j),
     live = j.state === 'running' || j.state === 'waiting',
     x = JS.find(a => a[0] === j.state);
-  H.innerHTML = `<span class="phead"><span class="pname">${esc(j.file)}</span><span class="d">${x[1]} · ${esc(TS(j.text))}</span></span>`;
+  H.innerHTML = `<span class="phead"><span class="pname">${jobName(j)}</span><span class="d">${x[1]} · ${esc(TS(j.text))}</span></span>`;
   B.innerHTML = `<div class="sec">${j.total ? `<span class="jbar big"><i style="--p:${(j.done / j.total) * 100}%"></i><span>${j.done} / ${j.total} frames</span></span>` : ''}
     <dl class="dl"><dt>${T('State')}</dt><dd>${jst(j.state)} ${esc(TS(j.text))}</dd><dt>${T('Step')}</dt><dd class="mono">${esc(j.stage)}</dd>${j.preset || j.department ? `<dt>${T('Script')}</dt><dd>${esc([j.preset, j.department].filter(Boolean).join(' · '))}</dd>` : ''}
     <dt>${T('Frames')}</dt><dd>${j.range ? j.range.join(' – ') : '–'}${j.shot ? ' · ' + esc(j.shot) : ''}</dd><dt>${T('Format')}</dt><dd>${j.ext || j.fps ? [esc(j.ext), j.fps ? +(+j.fps).toFixed(3) + ' fps' : ''].filter(Boolean).join(' · ') : '–'}</dd>${jobTimes(j)}<dt>${T('Machines')}</dt><dd>${machinesDD(j)}</dd>
@@ -161,7 +186,17 @@ function renderFarmDetail(H, B) {
    the job stopped -- and its steps, each with the time since the one before. Again every 10 s
    while it's on; once for one that's over, again when its step changes. */
 const JD = {};
-const PROBLEMS = ['Stopped', 'Why', 'Failed chunk', 'Stuck frame', 'Failed on', 'Corrupted frames', 'Missing shots', 'Taken off', 'Rendered again'];
+const PROBLEMS = [
+  'Stopped',
+  'Why',
+  'Failed chunk',
+  'Stuck frame',
+  'Failed on',
+  'Corrupted frames',
+  'Missing shots',
+  'Taken off',
+  'Rendered again'
+];
 function jobMore(j) {
   if (!LIVE) return '';
   const key = j.stage + '|' + j.state,
@@ -281,7 +316,8 @@ function farmAction(k, el) {
         F.me.worker ? T('this machine is no longer a worker') : T('this machine becomes a worker')
       );
     const mine = F.workers.find(x => x.mine);
-    if (F.me.worker && F.me.rendering) askStop(T('this machine'), (mine && mine.file) || '', off, mine && mine.name);
+    if (F.me.worker && F.me.rendering)
+      askStop(T('this machine'), (mine && mine.file) || '', off, mine && mine.name);
     else off(false);
   }
   if (k === 'archive_all')
@@ -297,7 +333,8 @@ function farmAction(k, el) {
     farmPost({ action: k, job_id: j.id }, JOB_SAY[k]() + ' · ' + j.file);
   if (w && k === 'forget') farmPost({ action: 'forget_worker', value: w.uuid }, T('machine forgotten'));
   if (w && k === 'stop') {
-    const stop = now => farmPost({ action: 'stop_worker', value: w.uuid, now }, T('stopping {name}', { name: w.name }));
+    const stop = now =>
+      farmPost({ action: 'stop_worker', value: w.uuid, now }, T('stopping {name}', { name: w.name }));
     if (w.file) askStop(w.name, w.file, stop, w.name);
     else stop(false);
   }
@@ -310,7 +347,9 @@ function farmAction(k, el) {
 function machinesHTML() {
   const by = {},
     me = F.me || {},
-    st = { dead: T('stopped'), running: T('running'), stale: T('stuck'), ok: T('running') }[F.status] || F.status;
+    st =
+      { dead: T('stopped'), running: T('running'), stale: T('stuck'), ok: T('running') }[F.status] ||
+      F.status;
   const node = (uuid, label) => (by[uuid] = by[uuid] || { uuid, label, files: [], worker: null });
   (M.presence || []).forEach(p => node(p.uuid || p.machine, `${p.user} (${p.machine})`).files.push(p));
   F.workers.forEach(w => (node(w.uuid, w.name).worker = w));
@@ -326,7 +365,9 @@ function machinesHTML() {
   // The file it renders: a click opens that file (its detail), not the machine's.
   const fileLink = f => {
     const n = name(f);
-    return n ? `<button class="lnk mono" data-sgofile="${esc(n)}" data-stab="plan" title="${T('Open {name}', { name: esc(n) })}">${esc(f)}</button>` : esc(f);
+    return n
+      ? `<button class="lnk mono" data-sgofile="${esc(n)}" data-stab="plan" title="${T('Open {name}', { name: esc(n) })}">${esc(f)}</button>`
+      : esc(f);
   };
   // The farm host's card: what it runs itself (a setup, a check, a video) -- without it, an idle
   // worker there while shots wait reads like a bug.
@@ -357,7 +398,9 @@ function machinesHTML() {
             const n = name(f.file);
             return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mn-fn"><span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</span></button>`;
           })
-          .join('')}${m.me ? `<span class="mn-act"><button class="btn sm ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></span>` : remoteAct(m.worker)}</div></div>`
+          .join(
+            ''
+          )}${m.me ? `<span class="mn-act"><button class="btn sm ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></span>` : remoteAct(m.worker)}</div></div>`
             )
             .join('')}</div>`
         : `<div class="empty">${T('No Blender has a project file open, no worker.')}</div>`

@@ -4,7 +4,28 @@ All notable changes to this addon. Dates are release dates.
 
 ## Unreleased
 
+### Changed
+
+- Live page, the list: the rows' stripes start with the darker one (a
+  sequence's header and its departments' line are the light ones: a
+  sequence of one shot was one light block), and a band of the screen's
+  ground between the sequences' blocks.
+- Live page, Farm: a job of one shot of a block says it in its file's name
+  -- that shot's number strong, the block's others faint
+  (sq040_sh030-**040**-045_v001); the whole block as is. The phone too.
+- Live page, Watch large in full screen: its header hidden at first (its
+  tab shows it).
+- A shot or asset created from the page: its description as typed, none
+  if none -- no "(asked by …)" added any more.
+- Blender, the project panel: the work under way in the background (Clean
+  old renders, looking then cleaning; Migrate old data; rushes pushed;
+  Update links) said at its top, a ring turning and its seconds, until it
+  ends. The live page's footer says them too.
+
 ### Fixed
+
+- A file's description emptied in a review (the page): cleared at the
+  import -- an empty one was taken for no change.
 
 - Live page, a file's renders to watch (the version picker, A/B): in the
   order of its render history, newest first -- no longer by the render

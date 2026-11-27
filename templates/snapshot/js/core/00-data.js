@@ -218,7 +218,7 @@ const S = {
   wide: false,
   wfull: false,
   wside: true, // full screen: the side panel over the video (its tab folds it)
-  whead: true, // full screen: the header (its tab hides it)
+  whead: false, // full screen: the header, hidden at first (its tab shows it)
   closedTree: new Set(),
   ver: {},
   wdep: null,

@@ -113,6 +113,12 @@ def start(root: Path, owners: list[Path]) -> dict:
         }
         job["thread"] = threading.Thread(target=_run, args=(job,), daemon=True, name="pipeline-relink")
         _jobs[key] = job
+        try:
+            from .monitoring import tasks
+
+            tasks.kick()  # the project panel says it while it runs
+        except Exception:
+            pass
         job["thread"].start()
         log("INFO", "relink", f"Update links: {plan['source'].name} -> {plan['out'].name} ({len(plan['mapping'])} link(s))")
         started.append(owner.name)

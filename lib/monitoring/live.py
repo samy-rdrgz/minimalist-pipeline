@@ -863,7 +863,8 @@ def _apply(root: Path, raw: dict) -> dict:
     out["changed"] += checked["changed"]
     out["skipped"] += checked["skipped"]
     for a in actions:
-        if a["type"] == "description" and a.get("new") and a["new"] != a["old"]:
+        # An empty one over a description: cleared.
+        if a["type"] == "description" and a.get("new", "") != a.get("old", ""):
             filepath = _review_file(a["file"])
             if filepath:
                 try:

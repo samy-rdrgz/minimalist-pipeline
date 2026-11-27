@@ -940,16 +940,23 @@ class SnapshotJob:
         self.done = True
 
 
-def run_in_background(fn, args: tuple, on_done, on_error, every: float = 0.3) -> None:
+def run_in_background(fn, args: tuple, on_done, on_error, every: float = 0.3, task: tuple | None = None) -> None:
     """fn(*args) on a SnapshotJob, polled by a timer (no modal handler: works
-    with no window), then on_done(result) or on_error(error)."""
+    with no window), then on_done(result) or on_error(error). task (kind,
+    label): said while it runs (lib/monitoring/tasks.py -- Blender's project
+    panel, the live page's footer)."""
     import bpy
 
+    from . import tasks
+
+    tid = tasks.start(*task) if task else 0
     job = SnapshotJob(fn, *args)
 
     def poll():
         if not job.done:
             return every
+        if tid:
+            tasks.end(tid, not job.error, str(job.error or ""))
         if job.error:
             on_error(job.error)
         else:

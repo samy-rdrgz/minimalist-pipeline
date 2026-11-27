@@ -242,7 +242,7 @@ function mFarm() {
           // An ffmpeg pass (frame check, compilation, preview): its own progress, after the frames'.
           const bar = j.compile != null || j.total,
             p = j.compile != null ? j.compile : j.total ? j.done / j.total : 0;
-          return `<button class="m-job" data-msheet="job:${j.id}">${jst(j.state)}<span class="jt"><b>${esc(j.file)}</b><small>${esc([TS(j.text), j.user].filter(Boolean).join(' · '))}</small>
+          return `<button class="m-job" data-msheet="job:${j.id}">${jst(j.state)}<span class="jt"><b>${jobName(j)}</b><small>${esc([TS(j.text), j.user].filter(Boolean).join(' · '))}</small>
           ${bar ? `<span class="jbar"><i style="--p:${p * 100}%"></i></span>` : ''}</span><span class="pc">${bar ? Math.round(p * 100) + ' %' : ''}</span></button>`;
         })
         .join('')}

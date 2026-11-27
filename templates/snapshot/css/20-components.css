@@ -2253,13 +2253,21 @@ body::after {
 }
 /* Colour only: a row set aside keeps its hatching (.row.omit's background-image). Under :where():
    hovered and picked win over the stripes. */
+/* The first row the darker one: the sequence's header and the departments' are the light ones (a
+   sequence of one shot was one light block, header to row). */
 .rows > .row:where(:nth-child(odd of .row)),
 .jobs > .job:where(:nth-child(odd of .job)) {
-  background-color: var(--stripe-a);
+  background-color: var(--stripe-b);
 }
 .rows > .row:where(:nth-child(even of .row)),
 .jobs > .job:where(:nth-child(even of .job)) {
-  background-color: var(--stripe-b);
+  background-color: var(--stripe-a);
+}
+/* Between the sequences' blocks, a band of the screen's ground (glass over the area): each block
+   apart -- the area's own grey made them one. */
+#list:has(> .grp) {
+  background: color-mix(in srgb, var(--screen) 65%, transparent);
+  gap: calc(var(--gap) * 1.5);
 }
 .rows > .row:is(:hover, .hov),
 .jobs > .job:is(:hover, .hov) {
@@ -5281,4 +5289,13 @@ button.mn-h:hover {
 .new-f {
   display: flex;
   padding: var(--sp-6) var(--sp-7);
+}
+
+/* A job of one shot of a block: that shot's number strong in the file's name, the others faint (jobName()). */
+.jsub {
+  font-weight: 700;
+  color: var(--text);
+}
+.jsub-o {
+  opacity: 0.45;
 }

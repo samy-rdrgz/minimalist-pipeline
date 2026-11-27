@@ -746,11 +746,12 @@ def import_review(path: Path, review: dict | None = None) -> dict:
 def review_description_changes(path: Path) -> list[dict]:
     """[{"name", "filepath", "old", "new"}] for every description action
     the prod changed (new differs from the one exported) that still
-    differs from the file's current one; an empty one is no change."""
+    differs from the file's current one -- an empty new one over a
+    description: cleared."""
     changes, seen = [], set()
     for a in read_review(path)["actions"]:
         name, new = a["file"], a.get("new", "")
-        if a["type"] != "description" or not new or name in seen:
+        if a["type"] != "description" or name in seen:
             continue
         seen.add(name)
         if new == a["old"]:
@@ -767,15 +768,14 @@ def review_description_changes(path: Path) -> list[dict]:
 def create_rows(review: dict) -> dict:
     """The review's new shots and assets as the CSV batch's rows ({"asset":
     [...], "shot": [...]}, lib/batch.py): M_PIPELINE_OT_batch_create makes
-    them, skipping one that exists (the same review imported twice). The
-    reviewer and their role in each one's description."""
+    them, skipping one that exists (the same review imported twice). Each
+    one's description as typed, none if none -- who asked for it is in the
+    log, not appended to it."""
     out = {"asset": [], "shot": []}
-    who = " / ".join(x for x in (review.get("author"), review.get("role")) if x)
     for a in review["actions"]:
         if a["type"] != "create":
             continue
-        description = a["description"] + (f" (asked by {who})" if who else "")
-        row = {"departments": ", ".join(a["departments"]), "description": description.strip()}
+        row = {"departments": ", ".join(a["departments"]), "description": a["description"].strip()}
         if a.get("assignees"):
             row["assignees"] = a["assignees"]
         if a["kind"] == "shot":

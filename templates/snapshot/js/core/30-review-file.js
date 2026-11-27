@@ -95,8 +95,9 @@ function reviewActions() {
           render: ref
         });
       });
-    if (it.descEdit !== undefined && String(it.descEdit).trim() && it.descEdit.trim() !== (it.desc || ''))
-      out.push({ type: 'description', file: f, old: it.desc || '', new: it.descEdit.trim() });
+    // Emptied: sent too, the description cleared at the import.
+    if (it.descEdit !== undefined && String(it.descEdit).trim() !== (it.desc || ''))
+      out.push({ type: 'description', file: f, old: it.desc || '', new: String(it.descEdit).trim() });
     // Marked fixed (true), or open again ('reopen': a retake or to-do closed already).
     Object.entries(it.fixed).forEach(([id, v]) =>
       out.push({ type: v === 'reopen' ? 'reopen' : 'fixed', file: f, id })
@@ -210,7 +211,9 @@ function fromActions(actions) {
         assignees: a.assignees || {},
         ...(a.kind === 'shot'
           ? {
-              shots: String(a.shot || '').split('-').map(Number),
+              shots: String(a.shot || '')
+                .split('-')
+                .map(Number),
               ...(a.timeline ? { timeline: String(a.timeline).split('-').map(Number) } : {})
             }
           : {})
