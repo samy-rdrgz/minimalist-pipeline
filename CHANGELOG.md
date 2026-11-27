@@ -44,6 +44,10 @@ All notable changes to this addon. Dates are release dates.
 - Live page, Watch large: the version line keeps one height whether the file
   has one version or several (A / B): the timeline no longer moves from one
   shot to the next.
+- Live page, a file's detail › Last renders: the last render of each shot
+  and department only -- it listed every render folder (the older ones are
+  in the player's version menu). Its ▶ on a block's shot plays that shot's
+  render (it could play another version, counted among all the shots').
 - The detail panel with no file selected: no empty tab strip beside *Pick a
   file in the list*.
 - The phone's page, a review: a note's replies shown under it, and

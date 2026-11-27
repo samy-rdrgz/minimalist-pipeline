@@ -556,6 +556,21 @@ document.addEventListener('click', e => {
     renderWide();
     return;
   }
+  // Last renders' ▶: its shot (a block's) in the player, then that version among the shot's own.
+  const lv = t.closest('[data-lver]');
+  if (lv) {
+    const it = cur(),
+      v = it && it.versions[+lv.dataset.lver];
+    if (v) {
+      S.shot[it.name] = v.shot || '';
+      S.ver[it.name] = Math.max(0, versOf(it).indexOf(v));
+      S.frame = 1;
+    }
+    if (S.tab === 'renders' && !S.wide) S.tab = 'plan';
+    renderProps();
+    renderWide();
+    return;
+  }
   const vr = t.closest('[data-ver]');
   if (vr) {
     S.ver[S.sel] = +vr.dataset.ver;
