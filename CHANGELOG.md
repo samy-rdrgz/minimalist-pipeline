@@ -24,6 +24,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- **Live page, a picture in the background**: the selected file's
+  thumbnail (the Farm: the selected job's file) fills the screen, blurred,
+  its colours kept but pastel and its light evened out (a dark theme's
+  lightness, a light one's) so what lies over it stays readable. The main
+  areas stay opaque; the gaps between them, the top bar, and the secondary
+  bars (the status bar, Watch large's header) let it through, as glass.
+  Menu > Picture in the background turns it off (this browser).
 - **A version's note**: Increment (and Increment as stable) has an optional
   *What changed* line -- "fixed the arm", "cam rescaled" -- kept in the
   version's `.wipmeta` / `.stablemeta` (`note`), written in the log, shown
@@ -47,6 +54,19 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, a new asset: Add to my review did nothing (an asset has no
+  shots: the page stopped there). Fixed.
+- Live page, New shot / New asset: its sequence (a number: a new one makes
+  a new sequence, its first shot 010) or its prefix (the project's) changed
+  in the dialog; Menu > New shot… / New asset… open it from anywhere.
+- Background picture: a little lighter; the workspace tabs' bar and the
+  review's bar glass too; the header's right end on the areas' edge.
+- Live page, Watch large: Next plays a block's sub-shots one after the
+  other, then the next shot of the list as filtered (To check, a search...),
+  across sequences -- it played a block's first sub-shot only, stopped at the
+  sequence's end, and ignored the filters; ← → go through that list too.
+  Play the sequence still stops at its own end. Another shot, or another
+  sub-shot, starts at its very first frame.
 - Live page, background work in the footer: Update links and pushes of the
   rushes said while under way (a spinner, how many), then done or failed
   (✓ / ✕, a toast once, every one with its words in the tooltip) -- a relink

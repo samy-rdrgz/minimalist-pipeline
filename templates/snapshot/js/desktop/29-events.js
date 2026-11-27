@@ -10,6 +10,28 @@ function v6Click(t) {
     setTimeout(() => tour(0), 50);
     return true;
   }
+  if (t.closest('[data-bdrop]')) {
+    LS.set('mp-snapshot.backdrop', bdropOn() ? '0' : '');
+    syncBackdrop();
+    return true;
+  }
+  const np = t.closest('[data-newplan]');
+  if (np) {
+    closeMenus();
+    if (!S.review) {
+      msg(T('Start a review first: a new file is made when it is imported'));
+      return true;
+    }
+    // Its sequence or prefix: the selected file's, else the first one -- changed in the dialog.
+    const k = np.dataset.newplan,
+      c = cur(),
+      g =
+        c && c.kind === k
+          ? groupOf(c)
+          : (items.find(i => i.kind === k) && groupOf(items.find(i => i.kind === k))) || (k === 'shot' ? plSeq(10) : plPrefixes()[0] || '');
+    planDlg(g, k);
+    return true;
+  }
   const th = t.closest('[data-theme]');
   if (th) {
     setTheme(th.dataset.theme);
@@ -138,7 +160,7 @@ function v6Click(t) {
     if (err.length || (warn.length && !PL.anyway)) return true;
     const name = plName(),
       sh = PL.kind === 'shot',
-      ord = [...PL.shots].sort((a, b) => a.n - b.n);
+      ord = sh ? [...PL.shots].sort((a, b) => a.n - b.n) : []; // an asset has no shots
     A.plan({
       name,
       g: PL.g,
@@ -938,7 +960,8 @@ document.addEventListener('click', e => {
     S.sel = f.name;
     S.wide = true;
     S.frame = 1;
-    S.seqPlay = true;
+    delete S.shot[f.name]; // a block: from its first sub-shot
+    S.seqPlay = sq.dataset.seq; // this sequence, stopped at its end
     renderAll();
     if (!S.playing) togglePlay();
     msg(T('Playing {seq}: the shots one after the other', { seq: sq.dataset.seq }));

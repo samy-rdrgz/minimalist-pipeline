@@ -10,7 +10,7 @@ html {
 }
 body {
   margin: 0;
-  background: var(--screen);
+  background: transparent; /* the screen's grey: html's, under the backdrop (body::before) */
   color: var(--text);
   font: 400 var(--fs) / 1.45 var(--ui);
   -webkit-font-smoothing: antialiased;
@@ -536,7 +536,7 @@ button.chip-frame:hover {
   align-items: flex-end; /* everything on the tabs' line: their foot, the bar's */
   gap: var(--sp-5);
   padding: 0 var(--sp-3) 0 var(--sp-5);
-  background: var(--screen); /* on the screen itself, no box */
+  background: transparent; /* on the screen itself, no box: the backdrop through */
   flex: none;
   min-width: 0;
 }
@@ -2026,6 +2026,64 @@ body.out-open .scrim {
 #wide[hidden] {
   display: none;
 }
+/* The page's backdrop (--wbg, the selected file's picture, boot.js syncBackdrop()): filling the
+   screen, blurred, under the screen's grey at 72 %; the areas stay opaque over it, the gaps
+   between them and the status bar (glass) let it through. */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+body::before {
+  background: var(--wbg, none) center / cover no-repeat;
+  filter: blur(90px);
+  transform: scale(1.3);
+}
+body::after {
+  background: color-mix(in srgb, var(--screen) 55%, transparent);
+}
+.statusbar,
+.ws,
+.review-chip {
+  background: color-mix(in srgb, var(--head) 55%, transparent) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+/* The header's right end on the areas' right edge (the review's bar against it). */
+.topbar {
+  padding-right: 0;
+}
+/* Its backdrop (--wbg, the shot's picture): filling the screen, blurred, under the screen's
+   grey at 72 % -- the panels keep their own backgrounds over it. */
+#wide::before,
+#wide::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+#wide::before {
+  background: var(--wbg, none) center / cover no-repeat;
+  filter: blur(90px);
+  transform: scale(1.3); /* the blur's soft edge out of sight */
+}
+#wide::after {
+  background: color-mix(in srgb, var(--screen) 55%, transparent);
+}
+#wide > * {
+  position: relative;
+  z-index: 1;
+}
+/* The main areas stay opaque; the secondary ones -- its header -- glass over the backdrop. */
+#wide .w-head {
+  background: color-mix(in srgb, var(--head) 55%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
 .w-head {
   display: flex;
   align-items: center;
@@ -2145,7 +2203,7 @@ body.out-open .scrim {
   /* The screen's ground between the sequences' blocks (the gutters between areas): the blocks
      stand out, edge to edge -- a gap above the first one only, under the header. The Farm tab's
      groups alike (the same #list). */
-  background: var(--screen);
+  background: transparent; /* the backdrop through, between the blocks */
   /* The gutter between areas (--gap), between the blocks and above the first. */
   padding: var(--gap) 0 0;
   display: flex;

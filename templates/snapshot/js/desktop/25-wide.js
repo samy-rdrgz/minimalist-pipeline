@@ -120,7 +120,7 @@ function renderWide() {
         <button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button>
-        <span class="join wend" title="${T('At the end of the video')}"><button class="btn sm" data-wend="loop" aria-pressed="${!S.seqPlay}" title="${T('At the end: the same video again')}">${ic('b-loop_back')}${T('Loop')}</button><button class="btn sm" data-wend="next" aria-pressed="${!!S.seqPlay}" title="${T('At the end: the next shot of {seq}, as Play the sequence', { seq: esc(g) })}">${ic('b-forward')}${T('Next')}</button></span>
+        <span class="join wend" title="${T('At the end of the video')}"><button class="btn sm" data-wend="loop" aria-pressed="${!S.seqPlay}" title="${T('At the end: the same video again')}">${ic('b-loop_back')}${T('Loop')}</button><button class="btn sm" data-wend="next" aria-pressed="${!!S.seqPlay}" title="${T('At the end: the next sub-shot, then the next shot of the list as filtered')}">${ic('b-forward')}${T('Next')}</button></span>
         <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span></div>
         <div class="w-vab">${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}</div></div>
         <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>

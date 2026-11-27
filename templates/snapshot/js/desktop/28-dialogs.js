@@ -55,22 +55,44 @@ const fixHTML = (it, n) => {
   const on = !!it.fixed[n.id];
   return `<button class="btn sm ${on ? 'ok' : 'flat'}" data-fix="${n.id}" aria-pressed="${on}" title="${on ? T('Cancel') : n.type === 'rtk' ? T('Mark fixed: applied when your review is imported') : T('Mark done: applied when your review is imported')}">${ic('b-checkmark')}${on ? T('Fixed · you') : n.type === 'rtk' ? T('Mark fixed') : T('Mark done')}</button>`;
 };
+/* The sub-shots of a block with a video of their own, in its order (a whole-block render
+   plays them all at once: none then). */
+const ownShots = it =>
+  it.versions.some(v => !(v.shot || '')) ? [] : (it.shots || []).filter(s => it.versions.some(v => v.shot === s));
+/* Next at a video's end (Watch large): a block's next sub-shot, else the next file of the list
+   as filtered (To check, a search... -- across sequences); Play the sequence stops at its own. */
 function seqNext() {
   const it = cur(),
-    sib = items.filter(i => i.kind === it.kind && groupOf(i) === groupOf(it) && !omitted(i));
-  const n = sib.findIndex(i => i.name === it.name);
-  if (n < 0 || n >= sib.length - 1) {
+    sh = ownShots(it),
+    k = sh.indexOf(shotOf(it));
+  if (k >= 0 && k < sh.length - 1) {
+    S.playing = false;
+    S.shot[it.name] = sh[k + 1];
+    S.ver[it.name] = 0;
+    S.frame = 1;
+    renderProps();
+    renderWide();
+    togglePlay();
+    return;
+  }
+  const only = typeof S.seqPlay === 'string' ? S.seqPlay : null,
+    L = playList(it).filter(i => !omitted(i) && (!only || groupOf(i) === only)),
+    n = L.findIndex(i => i.name === it.name);
+  if (n < 0 || n >= L.length - 1) {
     // The last one: stopped there (the choice Next kept for the next time).
     clearInterval(playT);
     S.playing = false;
     syncPlay();
-    msg(T('End of the sequence {seq}', { seq: groupOf(it) }));
+    msg(only ? T('End of the sequence {seq}', { seq: only }) : T('End of the list'));
     renderWide();
     return;
   }
-  // The next one from its start, playing on (the one before ended: paused).
+  // The next one from its start (a block: its first sub-shot), playing on.
+  const nx = L[n + 1];
+  delete S.shot[nx.name];
+  S.ver[nx.name] = 0;
   S.playing = false;
-  select(sib[n + 1].name, { open: false });
+  select(nx.name, { open: false });
   togglePlay();
 }
 const RF = {};
@@ -272,11 +294,25 @@ function setTheme(t) {
   fitViewport();
   closeMenus();
   if (S.ws === 'links') requestAnimationFrame(drawGraph);
+  try {
+    syncBackdrop(); // its picture's light made for the theme (not yet at boot: run after)
+  } catch (_) {}
 }
 /* A new shot or asset, as Blender's New shot / New asset: the sequence (or prefix) fixed by where it's
    asked, the shot prefix the project's; a shot's numbers each with its start frame, the end, the name
    that makes, what clashes. PL: the dialog's state while open. */
 let PL = null;
+/* The sequence's name from its number (naming.sequence), and back. */
+const plSeq = n => {
+  const q = (M.naming || {}).sequence || {};
+  return (q.prefix || 'sq') + String(n).padStart(q.digits || 3, '0');
+};
+const plSeqN = g => {
+  const p = ((M.naming || {}).sequence || {}).prefix || 'sq';
+  return String(g || '').startsWith(p) ? +String(g).slice(p.length) : NaN;
+};
+/* An asset's prefixes: the project's (Project settings), an unknown one refused by Blender. */
+const plPrefixes = () => [...(((M.naming || {}).asset_prefixes) || []), ...(((M.naming || {}).library_prefixes) || [])];
 const plSp = () => ((M.naming || {}).shot || {}).prefix || 'sh';
 const plSd = () => ((M.naming || {}).shot || {}).digits || 3;
 const plStart = () => +((M.naming || {}).frame_start ?? 1001);
@@ -315,10 +351,13 @@ function plCheck() {
   const err = [],
     warn = [];
   if (PL.kind !== 'shot') {
+    const pf = plPrefixes();
+    if (pf.length && !pf.includes(PL.g)) err.push(T('{prefix}: not a prefix of the project (Project settings)', { prefix: PL.g }));
     if (!plSan(PL.name)) err.push(T('A name: lowercase letters, digits and hyphens'));
     else if (items.some(i => i.name === plName()) || S.planned.some(p => p.name === plName())) err.push(T('{name} exists already', { name: plName() }));
     return [err, warn];
   }
+  if (!Number.isInteger(plSeqN(PL.g)) || plSeqN(PL.g) < 0) err.push(T('A sequence: a whole number'));
   const ns = PL.shots.map(x => x.n),
     st = PL.shots.map(x => x.s);
   if (ns.some(n => !Number.isInteger(n) || n < 0) || st.some(n => !Number.isInteger(n) || n < 0) || !Number.isInteger(PL.end) || PL.end < 0)
@@ -335,10 +374,11 @@ function plCheck() {
   });
   return [err, warn];
 }
+/* The next free tens in a sequence (010 in a new one). */
+const plNext = g => Math.floor(Math.max(0, ...Object.keys(plOwners(g)).map(Number)) / 10) * 10 + 10;
 function planDlg(g, kind) {
   if (kind === 'shot') {
-    const own = Object.keys(plOwners(g)).map(Number);
-    PL = { g, kind, shots: [{ n: Math.floor(Math.max(0, ...own) / 10) * 10 + 10, s: plStart() }], end: plStart() + 100, desc: '', deps: new Set(DEPTS[kind]), anyway: false };
+    PL = { g, kind, shots: [{ n: plNext(g), s: plStart() }], end: plStart() + 100, desc: '', deps: new Set(DEPTS[kind]), anyway: false, auto: true };
   } else PL = { g, kind, name: '', desc: '', deps: new Set(DEPTS[kind]) };
   planDraw();
   setTimeout(() => $(kind === 'shot' ? '#pl-d' : '#pl-n')?.focus(), 0);
@@ -358,6 +398,10 @@ function planLive() {
 function planDraw() {
   const dl = $('#dlg'),
     sh = PL.kind === 'shot';
+  const pf = plPrefixes(),
+    target = sh
+      ? `<div class="prop"><span class="k">${T('Sequence')}</span><span class="v"><label class="field"><span class="faint mono">${esc(((M.naming || {}).sequence || {}).prefix || 'sq')}</span><input type="number" min="0" step="10" data-plg value="${Number.isInteger(plSeqN(PL.g)) ? plSeqN(PL.g) : ''}" aria-label="${T('Sequence')}"></label><span class="faint">${T('a new number: a new sequence')}</span></span></div>`
+      : `<div class="prop"><span class="k">${T('Prefix')}</span><span class="v"><label class="field"><select data-plp aria-label="${T('Prefix')}">${[...new Set([...pf, PL.g])].filter(Boolean).map(x => `<option value="${esc(x)}" ${x === PL.g ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label><span class="faint">${T('another one: Project settings first')}</span></span></div>`;
   const rows = sh
     ? `<div class="prop"><span class="k">${T('Shots')}</span><span class="v pl-sh"><span class="pl-h"><span>${T('Number')}</span><span>${T('Start frame')}</span><span></span></span>${PL.shots
         .map(
@@ -365,11 +409,11 @@ function planDraw() {
             `<span class="pl-r"><label class="field"><span class="faint mono">${esc(plSp())}</span><input type="number" min="0" step="10" data-pln="${k}" value="${x.n}" aria-label="${T('Shot number')}"></label><label class="field"><input type="number" min="0" data-pls="${k}" value="${x.s}" aria-label="${T('First frame')}"></label><button class="btn sm flat icon" data-plrm="${k}" ${PL.shots.length > 1 ? '' : 'disabled'} aria-label="${T('Remove')}" title="${T('Remove')}">${ic('b-x')}</button></span>`
         )
         .join('')}<span class="pl-r"><button class="btn sm tool" data-pladd title="${T('One more shot: a block')}">${ic('b-add')}${T('Shot')}</button><label class="field"><span class="faint">${T('end')}</span><input type="number" min="0" data-ple value="${PL.end}" aria-label="${T('Last frame')}"></label><span></span></span></span></div>`
-    : `<div class="prop"><span class="k">${T('Name')}</span><span class="v"><label class="field" style="flex:1"><span class="faint mono">${esc(PL.g)}_</span><input id="pl-n" value="${esc(PL.name)}" aria-label="${T('Name')}" autocomplete="off"></label></span></div>`;
+    : `<div class="prop"><span class="k">${T('Name')}</span><span class="v"><label class="field" style="flex:1"><span class="faint mono" id="pl-pf">${esc(PL.g)}_</span><input id="pl-n" value="${esc(PL.name)}" aria-label="${T('Name')}" autocomplete="off"></label></span></div>`;
   dl.hidden = false;
-  dl.innerHTML = `<div class="dlg-in pl" role="dialog" aria-modal="true" aria-labelledby="pl-t"><h3 id="pl-t">${sh ? T('New shot in {seq}', { seq: esc(PL.g) }) : T('New file {prefix}_…', { prefix: esc(PL.g) })}</h3>
+  dl.innerHTML = `<div class="dlg-in pl" role="dialog" aria-modal="true" aria-labelledby="pl-t"><h3 id="pl-t">${sh ? T('New shot') : T('New asset')}</h3>
     <p class="faint" style="margin:0">${T('Made in the project when your review is imported, with its folders.')}</p>
-    ${rows}
+    ${target}${rows}
     <div class="prop"><span class="k">${T('Description')}</span><span class="v"><label class="field" style="flex:1"><input id="pl-d" value="${esc(PL.desc)}" placeholder="${T('What it shows')}" aria-label="${T('Description')}"></label></span></div>
     <div class="prop"><span class="k">${T('Departments')}</span><span class="v"><span class="join">${DEPTS[PL.kind].map(d => `<button class="btn sm" data-pld="${d}" aria-pressed="${PL.deps.has(d)}">${LBL[d]}</button>`).join('')}</span></span></div>
     <div id="pl-live"></div>
@@ -381,10 +425,27 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (!PL || !t.closest || !t.closest('.dlg-in.pl')) return;
   const v = t.value === '' ? NaN : +t.value;
-  if (t.dataset.pln != null) PL.shots[+t.dataset.pln].n = v;
+  if (t.dataset.pln != null) {
+    PL.shots[+t.dataset.pln].n = v;
+    PL.auto = false; // typed: kept when the sequence changes
+  }
   else if (t.dataset.pls != null) PL.shots[+t.dataset.pls].s = v;
   else if (t.dataset.ple != null) PL.end = v;
   else if (t.id === 'pl-n') PL.name = t.value;
+  else if (t.dataset.plg != null) {
+    PL.g = Number.isInteger(v) && v >= 0 ? plSeq(v) : '';
+    // Its first shot not typed yet: the next free one of that sequence.
+    if (PL.auto && PL.g && PL.shots.length === 1) {
+      PL.shots[0].n = plNext(PL.g);
+      const f = document.querySelector('[data-pln="0"]');
+      if (f) f.value = PL.shots[0].n;
+    }
+  }
+  else if (t.dataset.plp != null) {
+    PL.g = t.value;
+    const pf = $('#pl-pf');
+    if (pf) pf.textContent = PL.g + '_';
+  }
   else if (t.id === 'pl-d') PL.desc = t.value;
   planLive();
 });

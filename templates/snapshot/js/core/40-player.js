@@ -44,12 +44,15 @@ function mountVideo() {
   if (img) img.hidden = true;
   if (PV.parentNode !== st) st.insertBefore(PV, st.firstChild);
   if (PV.dataset.src !== c.src) {
-    // Another version of the same file (A / B): the same frame; another file, its start.
-    if (PV.dataset.item !== c.it.name) {
+    // Another version of the same shot (A / B): the same frame; another file, or another
+    // sub-shot of a block, its very start.
+    const key = c.it.name + '|' + shotOf(c.it);
+    let t = PV.dataset.src ? (S.frame - 1 + 0.5) / FPS() : 0;
+    if (PV.dataset.item !== key) {
       S.frame = 1;
-      PV.dataset.item = c.it.name;
+      t = 0;
+      PV.dataset.item = key;
     }
-    const t = PV.dataset.src ? (S.frame - 1 + 0.5) / FPS() : 0;
     PV.dataset.src = c.src;
     PV.src = c.src;
     PV.currentTime = t;

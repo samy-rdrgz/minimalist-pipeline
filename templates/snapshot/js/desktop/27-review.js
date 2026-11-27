@@ -28,12 +28,16 @@ function select(n, { open = true } = {}) {
   if (open && narrow() && !S.wide) document.body.classList.add('props-open');
   document.body.classList.remove('out-open');
 }
-/* The files previous / next go through: Watch large, its sequence's; the file's own list, as
-   filtered; any other tab (Links, To do, Breakdown), every file of its kind. */
+/* The files previous / next go through: the file's own list, as filtered (Watch large too);
+   any other tab (Links, To do, Breakdown), every file of its kind. */
 function navList() {
   const it = cur();
   if (!it || S.ws === 'farm') return [];
-  if (S.wide) return items.filter(i => i.kind === it.kind && groupOf(i) === groupOf(it));
+  return playList(it);
+}
+/* The list as shown (its filters, its folded sequences left out) when the file is in it;
+   else every file of its kind. Watch large plays through it too (Next, ← →). */
+function playList(it) {
   if (S.ws === it.kind) {
     const v = visible().filter(i => !S.closed.has(groupOf(i)));
     if (v.some(i => i.name === it.name)) return v;
