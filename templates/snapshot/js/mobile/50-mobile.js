@@ -25,7 +25,17 @@ const mGl = it =>
     })
     .join('');
 
+/* Watch large: the video on the whole screen -- the page not drawn again meanwhile (it would take the
+   video out of it, ending its full screen), drawn once back (mLate). */
+let mLate = false;
+const mBig = () =>
+  (document.fullscreenElement || document.webkitFullscreenElement) === PV || !!PV.webkitDisplayingFullscreen;
 function mRender() {
+  if (mBig()) {
+    mLate = true;
+    return;
+  }
+  mLate = false;
   const R = $('#mob');
   if (!LIVE && S.m.tab === 'farm') S.m.tab = 'review';
   const ta = $('#m-ta'),
@@ -127,7 +137,7 @@ function mReview() {
     <div class="m-player ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}" id="m-player">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: esc(it.name) })}" draggable="false">` : `<span class="noimg">${T('Not rendered yet')}</span>`}
       <span class="m-hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b>` : ''}${v ? esc(verLab(v)) : T('no version')}</span><span class="m-fr">f <span data-f>${fNo(S.frame)}</span></span></div>
     <div class="scrub big ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="${T('Frame')}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
-    <div class="m-tp"><button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}">${ic(S.playing ? 'b-pause' : 'b-play')}</button><button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}">${ic('b-frame_next')}</button><button class="btn icon" data-mloop aria-pressed="${S.m.loop}" aria-label="${T('Loop this shot')}" title="${S.m.loop ? T('Plays this shot again and again') : T("Plays the path's shots one after the other")}">${ic('b-file_refresh')}</button>
+    <div class="m-tp"><button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}">${ic(S.playing ? 'b-pause' : 'b-play')}</button><button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}">${ic('b-frame_next')}</button><button class="btn icon" data-mloop aria-pressed="${S.m.loop}" aria-label="${T('Loop this shot')}" title="${S.m.loop ? T('Plays this shot again and again') : T("Plays the path's shots one after the other")}">${ic('b-file_refresh')}</button><button class="btn icon" data-mbig ${pOff(it)} aria-label="${T('Watch large')}" title="${T('The video on the whole screen')}">${ic('b-fullscreen_enter')}</button>
       ${V.length > 1 ? `<span class="join m-ab" role="group" aria-label="${T('Version shown')}"><button class="btn" data-mside="A" aria-pressed="${S.m.side === 'A'}">A</button><button class="btn" data-mside="B" aria-pressed="${S.m.side === 'B'}">B</button></span>` : ''}</div>
     ${
       V.length > 1
@@ -384,7 +394,7 @@ function mSheet() {
         return '';
       }
     })();
-    h = `${LIVE ? '' : `<button class="btn m-wide" data-mvideos>${ic('b-file_folder')}${T('Choose the videos folder…')}</button>`}
+    h = `${LIVE ? '' : `<button class="btn m-wide" data-mvideos>${ic('b-file_folder')}${T('Choose the videos…')}</button><p class="m-hint">${T("The snapshot's videos zip (Export snapshot › Videos: Zip), or its .mp4 files.")}</p>`}
       <label class="btn m-wide">${ic('b-import')}${T('Load a review…')}<input type="file" class="rv-load" accept=".json,application/json" hidden></label>
       <div class="m-sec-h">${T('Theme')}</div><span class="join full">${[
         ['dark', T('Dark')],
@@ -620,6 +630,28 @@ $('#mob').addEventListener('click', e => {
       if (f && !mSib().some(i => i.name === S.sel)) S.sel = f.name;
     }
     mRender();
+    return;
+  }
+  if (q('[data-mbig]')) {
+    // The video itself on the whole screen, the phone turned sideways where it can be (Android);
+    // an iPhone: its own player. Back: the page as it was (full screen or not).
+    const c = curVideo();
+    if (!c || !c.src || PV.parentNode !== $('#m-player')) {
+      toast(T('Video not found: choose the videos folder (Menu).'));
+      return;
+    }
+    try {
+      const p = PV.requestFullscreen
+        ? PV.requestFullscreen({ navigationUI: 'hide' })
+        : PV.webkitEnterFullscreen && PV.webkitEnterFullscreen();
+      if (p && p.then)
+        p.then(
+          () =>
+            screen.orientation &&
+            screen.orientation.lock &&
+            screen.orientation.lock('landscape').catch(() => {})
+        ).catch(() => {});
+    } catch (_) {}
     return;
   }
   if (q('[data-mloop]')) {
@@ -866,9 +898,24 @@ function mFull(on) {
 }
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev =>
   document.addEventListener(ev, () => {
+    const big = mBig();
+    // Watch large: the player's own controls while on the whole screen (pause, seek); back, the page's.
+    PV.controls = big;
+    if (!big) {
+      try {
+        screen.orientation && screen.orientation.unlock && screen.orientation.unlock();
+      } catch (_) {}
+      if (mLate) mRender();
+      return;
+    }
     if (isMob() && S.m.sheet === 'menu') mRender();
   })
 );
+// An iPhone's own player: its end, the page's controls back.
+PV.addEventListener('webkitendfullscreen', () => {
+  PV.controls = false;
+  if (mLate) mRender();
+});
 $('#mob').addEventListener(
   'touchend',
   function first() {

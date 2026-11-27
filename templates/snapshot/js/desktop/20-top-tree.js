@@ -76,7 +76,7 @@ function reviewPop(btn) {
       startReview($('#rv-name').value, p.querySelector('[data-role][aria-pressed=true]').dataset.role);
       S.quick = p.querySelector('[data-path][aria-pressed=true]').dataset.path || null;
       if (!S.wide) {
-        S.ws = 'shot';
+        if (S.ws !== 'asset') S.ws = 'shot'; // on Assets (a first asset to add): stays there
         const f = visible()[0];
         if (f) S.sel = f.name;
       }

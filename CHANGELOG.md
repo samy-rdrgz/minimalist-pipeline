@@ -16,6 +16,22 @@ All notable changes to this addon. Dates are release dates.
   without its videos: the toast pointed to the Menu, which didn't have it;
   on a phone, the folder or the videos themselves), *Load a review…*, and
   the language.
+- The phone's page, Choose the videos…: the snapshot's videos **zip** (Export
+  snapshot › Videos: Zip, one file to bring to the phone) read for its
+  videos, played straight from it (zip64 too); or its .mp4 files, from the
+  phone's file browser (no longer its gallery, which renames them). A page
+  exported with Videos: Folder found them on a computer (its ../videos
+  beside it) but not on a phone, whose browser reads no file beside a page.
+- The phone's page: *Watch large*, the video on the whole screen (turned
+  sideways where the phone allows), its own player's controls.
+- Live page, Farm: the waiting jobs in the order the farm takes them
+  (priority, then the oldest; not accepted yet after).
+- Live page: a Blender on File › New (or on a file outside the project) no
+  longer shown on the file it had open -- its session closed at once.
+- Live page, Shots / Assets with none yet: the tab opens (it did nothing),
+  *No shot yet.* and *New shot…* / *New asset…*; planned files in a new
+  sequence (prefix) listed in their own group; starting a review from Assets
+  stays there.
 - The phone's page, a review: a note's replies shown under it, and
   *Reply* to one (taken back with its arrow) -- only the desktop page had
   them.

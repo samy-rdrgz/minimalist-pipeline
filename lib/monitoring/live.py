@@ -1165,6 +1165,17 @@ def _play(raw: dict) -> dict:
 FINISHED_SHOWN = 20  # the farm's finished jobs listed, newest first
 
 
+def _queue_order(row: dict) -> tuple:
+    """The order the farm takes its jobs in (farm/queue.py scan_queue()):
+    the highest priority first, then the oldest -- a job not accepted yet
+    (pending) after the queue's."""
+    try:
+        prio = int(row.get("priority", 10) or 0)
+    except (TypeError, ValueError):
+        prio = 10
+    return (bool(row.get("pending")), -prio, str(row.get("at") or ""))
+
+
 def _farm_data(root: Path) -> dict:
     """The Farm tab's: {"status", "jobs": [{"id", "file", "key" (its
     folder under the project: the page's link to it), "shot", "state",
@@ -1236,6 +1247,7 @@ def _farm_data(root: Path) -> dict:
         }
         (finished if state == "finished" else jobs).append(row)
     finished.sort(key=lambda r: r["at"], reverse=True)
+    jobs.sort(key=_queue_order)
     from ...farm.workers import worker_rendering
     from ..core import get_machine_id
 

@@ -5272,3 +5272,9 @@ button.mn-h:hover {
   margin: 0;
   white-space: normal;
 }
+
+/* New shot… / New asset… under the list's last group (a review's): a sequence or a prefix not there yet. */
+.new-f {
+  display: flex;
+  padding: var(--sp-6) var(--sp-7);
+}

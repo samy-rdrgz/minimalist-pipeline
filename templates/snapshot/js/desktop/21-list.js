@@ -31,10 +31,14 @@ function renderQuick() {
           ['prog', T('Progress')],
           ['render', T('Renders')]
         ]
-          .map(([k, l]) => `<button class="btn" data-sview="${k}" aria-pressed="${S.sview === k}">${l}</button>`)
+          .map(
+            ([k, l]) => `<button class="btn" data-sview="${k}" aria-pressed="${S.sview === k}">${l}</button>`
+          )
           .join('')}</span><span class="slg">${sParts()
           .map(([k, c, l]) => `<span><i style="background:${c}"></i>${T(l)}</span>`)
-          .join('')}<span><i class="todo"></i>${T(S.sview === 'render' ? 'Not rendered' : 'To do')}</span></span><span class="sp"></span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button><button class="btn tool" data-export title="${T('Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)')}">${ic('b-export')}${T('Export…')}</button>`
+          .join(
+            ''
+          )}<span><i class="todo"></i>${T(S.sview === 'render' ? 'Not rendered' : 'To do')}</span></span><span class="sp"></span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button><button class="btn tool" data-export title="${T('Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)')}">${ic('b-export')}${T('Export…')}</button>`
       : `<button class="btn qfold only-phone" data-qfold aria-expanded="${S.qFold === false}">${ic('b-filter')}${T('Filters')}${on ? ` <span class="n">${on}</span>` : ''}${ic(S.qFold === false ? 'b-downarrow_hlt' : 'b-rightarrow')}</button><span class="join">${q.map(([k, l, n, g]) => `<button class="btn" data-quick="${k}" aria-pressed="${S.quick === k}">${g.replace('class="g"', 'class="g" style="width:18px;height:18px"')}<span>${l}</span><span class="n">${n}</span></button>`).join('')}</span>
     <span class="anchor"><button class="btn ${nm ? '' : 'tool'}" data-menu="m-more" aria-haspopup="true" aria-expanded="false" ${nm ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${T('Filters')}${nm ? ` <span class="n">${nm}</span>` : ''}${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-more" hidden role="menu">
@@ -81,15 +85,27 @@ function renderList() {
   L.classList.toggle('nothumb', S.hideCols.has('thumb'));
   L.classList.toggle('noprog', S.hideCols.has('prog'));
   L.classList.toggle('farmcol', farmCol());
-  const vis = visible();
+  const vis = visible(),
+    groups = [...new Set(vis.map(groupOf))],
+    // Planned in a sequence (a prefix) with nothing shown yet: their own group.
+    orphans = [...new Set(S.planned.filter(p => p.kind === S.ws && !groups.includes(p.g)).map(p => p.g))];
+  const newBtn = `<button class="btn tool" data-newplan="${S.ws}">${ic('b-add')}${S.ws === 'shot' ? T('New shot…') : T('New asset…')}</button>`;
+  const orphanHTML = orphans
+    .map(
+      g => `<div class="grp" data-g="${g}"><div class="grp-h"><span class="ttl"><b>${g}</b></span></div>
+      <div class="rows">${S.planned.map((p, n) => (p.g === g && p.kind === S.ws ? plannedRow(p, n) : '')).join('')}</div></div>`
+    )
+    .join('');
   if (!vis.length) {
+    const none = !items.some(i => i.kind === S.ws);
     L.innerHTML =
-      `<div class="empty">${T('No file matches the filters.')}<button class="btn" data-act="clear">${T('Clear the filters')}</button></div>` +
+      orphanHTML +
+      `<div class="empty">${none ? (S.ws === 'shot' ? T('No shot yet.') : T('No asset yet.')) : T('No file matches the filters.')}${none ? '' : `<button class="btn" data-act="clear">${T('Clear the filters')}</button>`}${newBtn}</div>` +
       otherHTML();
     return;
   }
   L.innerHTML =
-    [...new Set(vis.map(groupOf))]
+    groups
       .map(g => {
         const all = vis.filter(i => groupOf(i) === g),
           act = all.filter(i => !omitted(i) && i.done != null),
@@ -113,11 +129,19 @@ function renderList() {
           : ''
       }</div></div>`;
       })
-      .join('') + otherHTML();
+      .join('') +
+    orphanHTML +
+    (S.review ? `<div class="new-f">${newBtn}</div>` : '') +
+    otherHTML();
 }
 function plannedRow(p, n) {
   return `<div class="row planned"><span class="thumb"></span><span class="fname"><span class="n">${esc(p.name)}</span>${p.desc ? `<span class="d">${esc(p.desc)}</span>` : ''}<span class="m"><span class="tag you">${T('new · made at the import')}</span></span></span>
-  <span class="depts">${shownDepts(p.kind).map(d => `<span class="cell ${p.deps.includes(d) ? '' : 'na'}">${glyph(p.deps.includes(d) ? 'todo' : 'na')}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${p.deps.includes(d) ? T('To do') : ''}</span></span></span>`).join('')}</span>
+  <span class="depts">${shownDepts(p.kind)
+    .map(
+      d =>
+        `<span class="cell ${p.deps.includes(d) ? '' : 'na'}">${glyph(p.deps.includes(d) ? 'todo' : 'na')}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${p.deps.includes(d) ? T('To do') : ''}</span></span></span>`
+    )
+    .join('')}</span>
   <span class="bars"><button class="btn sm flat" data-unplan="${n}" title="${T('Take this new file out of the review')}">${ic('b-x')}${T('Remove')}</button></span></div>`;
 }
 function otherHTML() {
@@ -143,7 +167,8 @@ function rowHTML(it) {
     tags.push(
       `<span class="tag tochk" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}${T('to check')}</span>`
     );
-  if (it.outdated && !farmCol()) tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
+  if (it.outdated && !farmCol())
+    tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
   if (it.farm && !farmCol())
     tags.push(
       `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(TS(it.farm.tip)) })}">${ic(it.farm.state === 'waiting' ? 'b-time' : 'b-file_movie')}farm ${esc(TS(it.farm.text))}${it.farm.department ? ' · ' + esc(LBL[it.farm.department] || it.farm.department) : ''}</span>`
@@ -170,9 +195,13 @@ function farmCell(it) {
     );
   }
   if (it.toCheck)
-    out.push(`<span class="fj chk" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}<span class="w">${T('to check')}</span></span>`);
+    out.push(
+      `<span class="fj chk" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}<span class="w">${T('to check')}</span></span>`
+    );
   if (it.outdated)
-    out.push(`<span class="fj old" title="${T('rendered before the last stable')}">${ic('b-error')}<span class="w">${T('outdated')}</span></span>`);
+    out.push(
+      `<span class="fj old" title="${T('rendered before the last stable')}">${ic('b-error')}<span class="w">${T('outdated')}</span></span>`
+    );
   return `<span class="bars farmc">${out.join('') || '<span class="faint">–</span>'}</span>`;
 }
 /* A bar's figure sits on its colour from this share up. */
@@ -262,7 +291,10 @@ function renderSynth() {
       return q[k] ? [`${col} ${a}% ${at}%`] : [];
     });
     const f = rv ? (q.chk + q.fresh) / c.np : c.done;
-    const tip = [...P.map(([k, , , t]) => q[k] && T(t, { n: q[k] })), q.todo && T(rv ? '{n} not rendered' : '{n} to do', { n: q.todo })]
+    const tip = [
+      ...P.map(([k, , , t]) => q[k] && T(t, { n: q[k] })),
+      q.todo && T(rv ? '{n} not rendered' : '{n} to do', { n: q.todo })
+    ]
       .filter(Boolean)
       .join(' · ');
     return `<span class="sf" style="--p:${at}%;--c:${stops.length ? `linear-gradient(90deg,${stops.join(',')})` : 'none'}" title="${T(rv ? 'Rendered up to date {pct}' : 'Done {pct}', { pct: pct(f) })} · ${tip}"><b class="v">${Math.round(f * 100)} %</b></span>`;
@@ -289,7 +321,7 @@ function renderSynth() {
     <div class="kpi"><span class="t">${T('Open retakes')}</span><span class="big">${items.reduce((a, i) => a + openRtk(i), 0)}</span><span class="faint">${T('on {n} file|on {n} files', { n: items.filter(openRtk).length })}</span></div>
     ${M.schedule ? `<div class="kpi"><span class="t">${T('Schedule · day {d} / {total}', { d: M.schedule.elapsed_days, total: M.schedule.total_days })}</span><span class="sf sch ${M.progress.shot >= IN ? 'in' : ''}" style="--p:${M.progress.shot * 100}%;--c:var(--st-done);--e:${M.schedule.expected * 100}%" title="${T('The line: where the shots should be today')}"><span class="lab ${M.progress.shot >= 0.45 ? 'on' : ''}">${T('Shots done')}</span><b class="v">${pct(M.progress.shot)}</b><i class="mk2"></i></span><span class="faint">${T('expected {pct}', { pct: pct(M.schedule.expected) })} · ${M.progress.shot < M.schedule.expected ? '<span class="bad">' + T('{n} points behind', { n: Math.round((M.schedule.expected - M.progress.shot) * 100) }) + '</span>' : T('on time')}</span></div>` : ''}
     <div class="kpi"><span class="t">${T('Set aside')}</span><span class="big">${items.filter(omitted).length}</span><span class="faint">${T('on hold or cancelled, out of the figures')}</span></div></div>
-  ${S.weights ? `<p class="weights">${T("A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don't count. Validated is counted apart: by the role {role}, on the stable shown.", { wip: (M.weights || {}).wip ?? 33, rework: (M.weights || {}).rework ?? 67, rtk: (M.weights || {}).rtk ?? 67, role: esc(M.role) })} ${T("The bar: each department in one state -- validated, done, in retake (done with an open retake, one or ten), in progress (reworked too), to do (not started, a retake on it or not).")}</p>` : ''}
+  ${S.weights ? `<p class="weights">${T("A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don't count. Validated is counted apart: by the role {role}, on the stable shown.", { wip: (M.weights || {}).wip ?? 33, rework: (M.weights || {}).rework ?? 67, rtk: (M.weights || {}).rtk ?? 67, role: esc(M.role) })} ${T('The bar: each department in one state -- validated, done, in retake (done with an open retake, one or ten), in progress (reworked too), to do (not started, a retake on it or not).')}</p>` : ''}
   ${table('shot', T('Shots'))}${table('asset', T('Assets'))}${overTime()}${projection()}${activity()}`;
 }
 /* Over time: one point a day (lib/monitoring/progress_log.py), Done and Validated of the shots

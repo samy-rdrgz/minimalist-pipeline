@@ -828,7 +828,7 @@ document.addEventListener('click', e => {
     S.quick = null;
     S.dept = null;
     if ((S.ws === 'shot' || S.ws === 'asset') && cur()?.kind !== S.ws)
-      S.sel = items.find(i => i.kind === S.ws).name;
+      S.sel = items.find(i => i.kind === S.ws)?.name ?? null;
     if (S.ws === 'links') S.tab = 'links';
     else if (S.tab === 'links' && S.ws !== 'synth') S.tab = 'plan';
     renderAll();
