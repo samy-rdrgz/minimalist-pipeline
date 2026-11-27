@@ -209,7 +209,7 @@ function mComposer() {
   if (!S.review)
     return `<div class="m-comp"><button class="btn primary m-wide" data-msheet="start">${ic('b-greasepencil')}${T('Start the review')}</button></div>`;
   const it = cur(),
-    req = DEPTS[it.kind].filter(d => required(it).includes(d));
+    req = DEPTS[it.kind];
   if (S.m.cdept && !req.includes(S.m.cdept)) S.m.cdept = null;
   return `<div class="m-comp"><div class="m-cr"><span class="join m-ct"><button class="btn icon" data-mct="rtk" aria-pressed="${S.m.ctype === 'rtk'}" aria-label="Retake" title="Retake">${ic('b-x')}</button><button class="btn icon" data-mct="note" aria-pressed="${S.m.ctype === 'note'}" aria-label="${T('Remark')}" title="${T('Remark')}">${ic('i-note')}</button><button class="btn icon" data-mct="todo" aria-pressed="${S.m.ctype === 'todo'}" aria-label="${T('To do')}" title="${T('To do')}">${ic('b-checkmark')}</button></span>
       <button class="m-chip" data-msheet="cdept"><span>${S.m.cdept ? LBL[S.m.cdept] : T('No dept.')}</span>${ic('b-downarrow_hlt')}</button>
@@ -344,9 +344,9 @@ function mSheet() {
   }
   if (k === 'cdept') {
     t = T('The note is on');
-    const req = DEPTS[it.kind].filter(d => required(it).includes(d));
     h =
-      req.map(d => opt(`data-mcd="${d}"`, S.m.cdept === d, LBL[d])).join('') +
+      // Every department of its kind: one not required said so (its notes count in no figure).
+      DEPTS[it.kind].map(d => opt(`data-mcd="${d}"`, S.m.cdept === d, LBL[d], naDep(it, d) ? T('not required') : '')).join('') +
       opt('data-mcd=""', !S.m.cdept, T('No department'), T('the whole shot'));
   }
   if (k === 'start') {

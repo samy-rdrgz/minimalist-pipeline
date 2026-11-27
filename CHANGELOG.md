@@ -14,8 +14,27 @@ All notable changes to this addon. Dates are release dates.
   (bars, figures, the curve, the legend); a review is the team's. In
   Blender, Preferences' User role greyed for that project.
 
+- Live page, Breakdown › Over time › **Files by state**: how many files to
+  do, in progress, done and validated, day after day, stacked -- the
+  rectangle of every file filling up; the schedule dotted (the files it
+  expects finished); a day's counts on hover. In place of the Done /
+  Validated curve (Projection keeps it). The progress log notes each day's
+  files by state ("states", by department too); **Migrate old data**
+  (offered again: migration "2.1") rebuilds them for the days before.
+- Live page, Breakdown › **Pace per week**: a column a week -- the files
+  finished, the files that received a retake (each once, however many
+  retakes or words), the pace the schedule needs from now dotted.
+- Notes, retakes and to-dos on **any department** of a file's kind, even
+  one not required on it: offered greyed in the pickers (the note's, its
+  edit, the phone's; Watch large, a line under the required ones), counted
+  in no figure, and said in the list: the dash of a department not required
+  wears its retake's badge, its note's bubble.
+
 ### Changed
 
+- Live page, Breakdown: the shots' and the assets' tables, their names'
+  column one width -- their first department at the same place; the
+  schedule tile's "Shots done" on one line (on two, it hid its bar).
 - Live page, Breakdown: the tables and the figures on top compact -- a thin
   bar a cell, the rows close, the tiles on one row: every sequence at a
   glance.

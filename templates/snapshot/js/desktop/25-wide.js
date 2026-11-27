@@ -40,7 +40,9 @@ function renderWide() {
     v = V[mVer(it).i],
     rv = S.review;
   const req = DEPTS[it.kind].filter(d => required(it).includes(d));
-  if (!req.includes(S.wdep)) S.wdep = req.find(d => it.mine[d] === 'rtk') || req[0] || '';
+  // Written on: a required department, or one not required (its notes counted in no figure).
+  if (!DEPTS[it.kind].includes(S.wdep)) S.wdep = req.find(d => it.mine[d] === 'rtk') || req[0] || '';
+  const others = DEPTS[it.kind].filter(d => !req.includes(d));
   const mk = marks(it).filter(f => !S.wnt || f.n.type === S.wnt);
   const wntH = `<span class="join">${[
     ['', T('All')],
@@ -49,7 +51,9 @@ function renderWide() {
     ['todo', T('To do')]
   ]
     .map(([k, l]) => `<button class="btn sm" data-wnt="${k}" aria-pressed="${S.wnt === k}">${l}</button>`)
-    .join('')}</span><button class="btn sm icon" data-wframe aria-pressed="${!!S.wframe}" aria-label="${T('At a frame')}" title="${T('Only the notes at a frame')}">${ic('b-keyframe')}</button>${nVerHTML(it, 'w', 1)}`;
+    .join(
+      ''
+    )}</span><button class="btn sm icon" data-wframe aria-pressed="${!!S.wframe}" aria-label="${T('At a frame')}" title="${T('Only the notes at a frame')}">${ic('b-keyframe')}</button>${nVerHTML(it, 'w', 1)}`;
   const mkH = mk
     .map(f => {
       const x = ((fIdx(f.a) - 1) / (NF - 1)) * 100;
@@ -77,7 +81,10 @@ function renderWide() {
     const m = String(n.frames || '').match(/(\d+)(?:-(\d+))?/);
     return m ? { a: +m[1], b: m[2] ? +m[2] : null } : null;
   };
-  const wl = byVer(it, [...it.notes.filter(n => !n.done && !n.approval), ...it.myNotes.map(n => ({ ...n, mine: 1 }))])
+  const wl = byVer(it, [
+    ...it.notes.filter(n => !n.done && !n.approval),
+    ...it.myNotes.map(n => ({ ...n, mine: 1 }))
+  ])
     .filter(n => (!S.wnt || n.type === S.wnt) && (!S.wframe || fr(n)))
     .map(n => ({ n, f: fr(n) }))
     .sort((x, y) => (x.f ? x.f.a : 1e9) - (y.f ? y.f.a : 1e9));
@@ -93,7 +100,9 @@ function renderWide() {
           }${wfx(n)}</div>`;
         })
         .join('')
-    : '<p class="faint" style="margin:0">' + (S.wframe ? T('No note at a frame on this video.') : T('No open note.')) + '</p>';
+    : '<p class="faint" style="margin:0">' +
+      (S.wframe ? T('No note at a frame on this video.') : T('No open note.')) +
+      '</p>';
   const writer =
     rv && S.wdep
       ? `<div class="ww"><div class="wwl"><span class="join"><button class="btn sm" data-wtype="rtk" aria-pressed="${S.wtype === 'rtk'}">Retake</button><button class="btn sm" data-wtype="note" aria-pressed="${S.wtype === 'note'}">${T('Remark')}</button><button class="btn sm" data-wtype="todo" aria-pressed="${S.wtype === 'todo'}">${T('To do')}</button></span>
@@ -126,7 +135,11 @@ function renderWide() {
         <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>
     </div>
     <div class="w-pan"><button class="pz-tab r w-tab" data-wside aria-expanded="${!!S.wside}" aria-label="${S.wside ? T('Fold the panel') : T('Show the panel')}" title="${S.wside ? T('Fold the panel') : T('Show the panel')}">${ic(S.wside ? 'b-tria_right' : 'b-tria_left')}</button>
-    <div class="w-side">${checkHTML(it)}<div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}</div>
+    <div class="w-side">${checkHTML(it)}<div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}${
+      rv && others.length
+        ? `<div class="wd-na"><span class="faint">${T('Not required')}</span>${others.map(d => `<button class="btn sm na" data-wdep="${d}" aria-pressed="${d === S.wdep}" title="${T('Write a note here: not required on this file, it counts in no figure')}">${glyph('na', info(it, d).corner, info(it, d).cnt, info(it, d).note)}${esc(LBL[d])}</button>`).join('')}</div>`
+        : ''
+    }</div>
       <div class="sec"><div class="sec-h">${T('Notes')}<span class="sp"></span><span class="faint" style="text-transform:none;letter-spacing:0">${T('a frame: click to go there')}</span></div><div class="wnf">${wntH}</div>${notesAt}</div>
       <div class="sec wsec">${writer}</div></div></div>
     <button class="pz-tab w-htab" data-whead aria-expanded="${!!S.whead}" aria-label="${S.whead ? T('Hide the header') : T('Show the header')}" title="${S.whead ? T('Hide the header') : T('Show the header')}">${ic(S.whead ? 'b-tria_up' : 'b-tria_down')}</button></div>`;
@@ -201,7 +214,8 @@ function wideFull(on) {
     'wheel',
     e => {
       const st = e.target.closest && e.target.closest('.strip');
-      if (!st || e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) || st.scrollWidth <= st.clientWidth) return;
+      if (!st || e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) || st.scrollWidth <= st.clientWidth)
+        return;
       st.scrollLeft += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
       e.preventDefault();
     },

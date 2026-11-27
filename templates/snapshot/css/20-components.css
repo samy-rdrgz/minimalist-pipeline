@@ -1357,7 +1357,7 @@ body.out-open .scrim {
 .kpis {
   display: grid;
   /* Compact: the tiles on one row on a desktop's width. */
-  grid-template-columns: repeat(auto-fit, minmax(calc(150px * var(--scale)), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(calc(165px * var(--scale)), 1fr));
   gap: var(--sp-4);
   padding: var(--sp-7);
 }
@@ -3195,6 +3195,7 @@ button.assign:hover {
 .sf .lab {
   margin-right: auto;
   color: var(--text-2);
+  white-space: nowrap; /* "Shots done" on one line: on two, it hid its bar */
 }
 .sf.na {
   color: var(--text-3);
@@ -3266,7 +3267,9 @@ button.assign:hover {
 
 .stab {
   display: grid;
-  grid-template-columns: minmax(100px, 0.8fr) repeat(var(--nd), minmax(64px, 1fr)) minmax(64px, 1fr);
+  /* The names' column a fixed width: the shots' and the assets' first department at the same place,
+     whatever their number of departments. */
+  grid-template-columns: calc(130px * var(--scale)) repeat(var(--nd), minmax(64px, 1fr)) minmax(64px, 1fr);
   /* Compact: every sequence at a glance -- a thin bar a cell, rows close together. */
   gap: 2px var(--sp-3);
   padding: var(--sp-3) var(--sp-7) var(--sp-5);
@@ -5327,4 +5330,21 @@ button.mn-h:hover {
 .grp.closed .mnodes,
 .grp.closed > :not(.grp-h) {
   display: none;
+}
+
+/* A department not required on the file, offered for a note all the same: greyed (its notes count in no figure). */
+.btn.na:not([aria-pressed="true"]) {
+  opacity: 0.55;
+}
+.btn.na .g {
+  width: calc(16px * var(--scale));
+  height: calc(16px * var(--scale));
+}
+/* Watch large: the departments not required, a line under the required ones -- to write a note on. */
+.wd-na {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
 }

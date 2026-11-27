@@ -60,7 +60,9 @@ from .monitoring.tracking import (
 # This migration's name, in the config's "data_migrations" once run.
 # "2.0": a project migrated by a 2.0 build before departments_done ("1.2")
 # is offered it again -- every step finds what's already done and skips it.
-MIGRATION = "2.0"
+# "2.1": the progress log's files by state (Breakdown), every day before
+# rebuilt -- a project migrated by 2.0 offered it again for them.
+MIGRATION = "2.1"
 BACKUP_DIRNAME = "backup"
 
 
@@ -127,7 +129,8 @@ def _progress_days_missing(root: Path, history: list) -> int:
     logged = progress_log.days(root)
     day, n = datetime.fromisoformat(first).date(), 0
     while day < today:
-        n += not progress_log.has_figures(logged.get(day.isoformat()))
+        # Missing, or logged before 2.1 without its files by state (Breakdown).
+        n += not progress_log.has_states(logged.get(day.isoformat()))
         day += timedelta(days=1)
     return n
 

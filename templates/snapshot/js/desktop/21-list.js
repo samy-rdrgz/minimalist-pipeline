@@ -323,7 +323,7 @@ function renderSynth() {
     ${M.schedule ? `<div class="kpi"><span class="t">${T('Schedule · day {d} / {total}', { d: M.schedule.elapsed_days, total: M.schedule.total_days })}</span><span class="sf sch ${M.progress.shot >= IN ? 'in' : ''}" style="--p:${M.progress.shot * 100}%;--c:var(--st-done);--e:${M.schedule.expected * 100}%" title="${T('The line: where the shots should be today')}"><span class="lab ${M.progress.shot >= 0.45 ? 'on' : ''}">${T('Shots done')}</span><b class="v">${pct(M.progress.shot)}</b><i class="mk2"></i></span><span class="faint">${T('expected {pct}', { pct: pct(M.schedule.expected) })} · ${M.progress.shot < M.schedule.expected ? '<span class="bad">' + T('{n} points behind', { n: Math.round((M.schedule.expected - M.progress.shot) * 100) }) + '</span>' : T('on time')}</span></div>` : ''}
     <div class="kpi"><span class="t">${T('Set aside')}</span><span class="big">${items.filter(omitted).length}</span><span class="faint">${T('on hold or cancelled, out of the figures')}</span></div></div>
   ${S.weights ? `<p class="weights">${T("A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don't count. Validated is counted apart: by the role {role}, on the stable shown.", { wip: (M.weights || {}).wip ?? 33, rework: (M.weights || {}).rework ?? 67, rtk: (M.weights || {}).rtk ?? 67, role: esc(M.role) })} ${T('The bar: each department in one state -- validated, done, in retake (done with an open retake, one or ten), in progress (reworked too), to do (not started, a retake on it or not).')}</p>` : ''}
-  ${table('shot', T('Shots'))}${table('asset', T('Assets'))}${overTime()}${activity()}`;
+  ${table('shot', T('Shots'))}${table('asset', T('Assets'))}${overTime()}${paceChart()}${activity()}`;
 }
 /* Over time: one point a day (lib/monitoring/progress_log.py), Done and Validated of the shots
    or the assets, all or one department; today's from the page's own figures when not logged yet. */
@@ -347,18 +347,12 @@ function otPoints() {
     });
   return pts.sort((a, b) => (a.day < b.day ? -1 : 1));
 }
+/* Over time: Files by state (statesChart()), or the projection (21-projection.js), under one header. */
 function overTime() {
-  const o = S.ot,
-    pts = otPoints(),
-    W = 720,
-    H = 200,
-    pl = 40,
-    pr = 92,
-    pt = 12,
-    pb = 26;
+  const o = S.ot;
   const deps = DEPTS[o.kind] || [];
   const head = `<div class="ot-h"><b>${T('Over time')}</b><span class="join">${[
-    ['', T('Until today')],
+    ['', T('Files by state')],
     ['ahead', T('Projection')]
   ]
     .map(
@@ -370,58 +364,224 @@ function overTime() {
     )}</span><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
     <span class="anchor"><button class="enum" data-menu="m-otd" aria-haspopup="true" aria-expanded="false"><span class="lb">${o.dept ? esc(LBL[o.dept]) : T('All departments')}</span>${ic('b-downarrow_hlt')}</button><div class="menu" id="m-otd" hidden role="menu">${['', ...deps].map(d => `<button class="mi" data-otd="${esc(d)}"><span class="ck">${d === o.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(LBL[d]) : T('All departments')}</span></button>`).join('')}</div></span>
     <button class="btn flat icon live-only" data-otreload aria-label="${T('Read the project again')}" title="${T("Read the project again: today's point brought up to date")}">${ic('b-file_refresh')}</button>
-    <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Done')}${VAL() ? `<i style="--c:var(--st-val)"></i>${T('Validated')}` : ''}${M.schedule ? `<i class="pj-sch"></i>${T('Schedule')}` : ''}</span></div>`;
+    <span class="ot-lg">${
+      o.view === 'ahead'
+        ? `<i style="--c:var(--st-done)"></i>${T('Done')}${VAL() ? `<i style="--c:var(--st-val)"></i>${T('Validated')}` : ''}`
+        : ST_LAYERS()
+            .map(([, c, l]) => `<i style="--c:${c}"></i>${l()}`)
+            .join('')
+    }${M.schedule ? `<i class="pj-sch"></i>${T('Schedule')}` : ''}</span></div>`;
   // Projection: the same days, then where their pace leads (21-projection.js), on the same header.
   if (o.view === 'ahead') return projection(head);
+  return statesChart(head);
+}
+/* Files by state: the layers, bottom up -- validated, done, in progress, to do (the rectangle filling up). */
+const ST_LAYERS = () =>
+  [
+    ['val', 'var(--st-val)', () => T('Validated')],
+    ['done', 'var(--st-done)', () => T('Done')],
+    ['wip', 'var(--st-wip)', () => T('In progress')],
+    ['todo', 'color-mix(in srgb, var(--st-todo) 30%, transparent)', () => T('To do')]
+  ].filter(([k]) => k !== 'val' || VAL());
+/* A department's state as the log counts it (progress_log.py _dept_state()); a file's (_file_state()). */
+const stDep = (it, d) =>
+  VAL() && it.ok[d] && !it.ok[d].old
+    ? 'val'
+    : isDone(it.states[d])
+      ? 'done'
+      : (it.states[d] || 'todo') === 'todo'
+        ? 'todo'
+        : 'wip';
+function stFile(it) {
+  const s = required(it).map(d => stDep(it, d));
+  if (!s.length) return 'todo';
+  if (s.every(x => x === 'val')) return 'val';
+  if (s.every(x => x === 'val' || x === 'done')) return 'done';
+  return s.every(x => x === 'todo') ? 'todo' : 'wip';
+}
+/* Today's counts, from the page's own files: {todo, wip, done, val}. */
+function stNow(kind, dept) {
+  const out = { todo: 0, wip: 0, done: 0, val: 0 };
+  items
+    .filter(i => i.kind === kind && !omitted(i) && (!dept || required(i).includes(dept)))
+    .forEach(i => out[dept ? stDep(i, dept) : stFile(i)]++);
+  return out;
+}
+/* Breakdown › Over time › Files by state: how many files in each state, day after day (progress_log.py
+   "states"), stacked -- the rectangle of every file filling up; the schedule's even pace dotted (the files
+   it expects finished). The days logged before 2.1: rebuilt by Migrate old data. */
+function statesChart(head) {
+  const o = S.ot,
+    key = o.kind === 'shot' ? 'shots' : 'assets',
+    today = new Date().toISOString().slice(0, 10);
+  const pts = Object.entries(M.history || {})
+    .map(([day, p]) => {
+      const k = (p || {})[key] || {},
+        s = o.dept ? ((k.departments || {})[o.dept] || {}).states : k.states;
+      return s ? { day, s } : null;
+    })
+    .filter(Boolean)
+    .filter(p => p.day !== today);
+  pts.push({ day: today, s: stNow(o.kind, o.dept), now: true });
+  pts.sort((a, b) => (a.day < b.day ? -1 : 1));
   if (pts.length < 2)
-    return `<div class="ot">${head}<p class="faint ot-empty">${T('One point a day, from the snapshots and the live page: the curve starts with the second day.')}</p></div>`;
-  const t0 = Date.parse(pts[0].day),
+    return `<div class="ot">${head}<p class="faint ot-empty">${T('Files by state, a point a day from today on. The days before: Migrate old data (Blender, the project panel) rebuilds them.')}</p></div>`;
+  const L = ST_LAYERS(),
+    tot = p => L.reduce((a, [k]) => a + (p.s[k] || 0) + (k === 'done' && !VAL() ? p.s.val || 0 : 0), 0),
+    top = Math.max(1, ...pts.map(tot)),
+    W = 720,
+    H = 200,
+    pl = 40,
+    pr = 112,
+    pt = 12,
+    pb = 26,
+    t0 = Date.parse(pts[0].day),
     t1 = Date.parse(pts[pts.length - 1].day),
     X = d => pl + ((Date.parse(d) - t0) / (t1 - t0 || 1)) * (W - pl - pr),
-    Y = v => pt + (1 - v) * (H - pt - pb);
-  const line = k =>
-    pts
-      .filter(p => p[k] != null)
-      .map((p, i) => (i ? 'L' : 'M') + X(p.day).toFixed(1) + ' ' + Y(p[k]).toFixed(1))
-      .join(' ');
-  const last = k => [...pts].reverse().find(p => p[k] != null);
+    Y = v => pt + (1 - v / top) * (H - pt - pb);
+  const val = (p, k) => (p.s[k] || 0) + (k === 'done' && !VAL() ? p.s.val || 0 : 0);
+  let base = pts.map(() => 0),
+    paths = '',
+    labs = [];
+  L.forEach(([k, c, l]) => {
+    const up = pts.map((p, i) => base[i] + val(p, k));
+    paths += `<path d="M${pts.map((p, i) => `${X(p.day).toFixed(1)} ${Y(up[i]).toFixed(1)}`).join(' L')} L${pts
+      .map((p, i) => `${X(p.day).toFixed(1)} ${Y(base[i]).toFixed(1)}`)
+      .reverse()
+      .join(' L')} Z" style="fill:${c}"/>`;
+    const n = pts.length - 1,
+      v = val(pts[n], k);
+    if (v) labs.push({ y: Y((up[n] + base[n]) / 2), t: `${l()} ${v}` });
+    base = up;
+  });
+  // The end labels never on each other: pushed down from the top one, a line apart at least.
+  labs
+    .sort((a, b) => a.y - b.y)
+    .forEach((x, i, a) => {
+      if (i && x.y - a[i - 1].y < 13) x.y = a[i - 1].y + 13;
+    });
   const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString(DTL(), { day: 'numeric', month: 'short' });
   const ticks = [0, Math.floor((pts.length - 1) / 2), pts.length - 1].filter((v, i, a) => a.indexOf(v) === i);
-  // The two end labels never on each other: pushed apart when closer than a line.
-  const ld = last('done'),
-    lv = last('val');
-  let yd = ld ? Y(ld.done) : 0,
-    yv = lv ? Y(lv.val) : 0;
-  if (ld && lv && Math.abs(yd - yv) < 14) {
-    const m = (yd + yv) / 2,
-      up = yd <= yv ? -7 : 7;
-    yd = m + up;
-    yv = m - up;
+  // The schedule: the files it expects finished (done or validated) each day, of the files there now.
+  let sch = '';
+  if (M.schedule) {
+    const s0 = Date.parse(M.schedule.start),
+      s1 = Date.parse(M.schedule.end),
+      a = Math.max(t0, s0),
+      b = Math.min(t1, s1),
+      at = t => Math.min(1, Math.max(0, (t - s0) / (s1 - s0 || 1))) * tot(pts[pts.length - 1]);
+    const iso = t => new Date(t).toISOString().slice(0, 10);
+    if (b > a)
+      sch = `<path class="pj-even" d="M${X(iso(a)).toFixed(1)} ${Y(at(a)).toFixed(1)} L${X(iso(b)).toFixed(1)} ${Y(at(b)).toFixed(1)}"/>`;
   }
-  const svg = `<svg class="ot-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${T('Over time')}">
-    ${[0, 0.5, 1].map(v => `<line class="ot-grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ot-ax" x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${v * 100} %</text>`).join('')}
+  const svg = `<svg class="ot-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${T('Files by state')}">
+    ${[0, Math.round(top / 2), top].map(v => `<line class="ot-grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ot-ax" x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`).join('')}
     ${ticks.map(i => `<text class="ot-ax" x="${X(pts[i].day)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'}">${fmt(pts[i].day)}</text>`).join('')}
-    ${schLine(t0, t1, X, Y)}
-    <path class="ot-l" style="--c:var(--st-val)" d="${line('val')}"/><path class="ot-l" style="--c:var(--st-done)" d="${line('done')}"/>
-    ${ld ? `<circle class="ot-end" style="--c:var(--st-done)" cx="${X(ld.day)}" cy="${Y(ld.done)}" r="4"/><text class="ot-lab" x="${X(ld.day) + 10}" y="${yd + 4}">${T('Done')} ${pct(ld.done)}</text>` : ''}
-    ${lv ? `<circle class="ot-end" style="--c:var(--st-val)" cx="${X(lv.day)}" cy="${Y(lv.val)}" r="4"/><text class="ot-lab" x="${X(lv.day) + 10}" y="${yv + 4}">${T('Validated')} ${pct(lv.val)}</text>` : ''}
-    <g class="ot-hv" hidden><line class="ot-x" y1="${pt}" y2="${H - pb}"/><circle class="ot-d" style="--c:var(--st-done)" r="4"/><circle class="ot-v" style="--c:var(--st-val)" r="4"/></g>
+    ${paths}${sch}
+    ${labs.map(x => `<text class="ot-lab" x="${W - pr + 8}" y="${x.y + 4}">${esc(x.t)}</text>`).join('')}
+    <g class="ot-hv" hidden><line class="ot-x" y1="${pt}" y2="${H - pb}"/><circle class="ot-d" r="0"/><circle class="ot-v" r="0"/></g>
     <rect class="ot-hit" x="${pl}" y="0" width="${W - pl - pr}" height="${H}" fill="transparent"/></svg>`;
   OT.pts = pts;
+  OT.mode = 'st';
   OT.geo = { X, Y, W, pl, pr };
   return `<div class="ot">${head}<div class="ot-box">${svg}<div class="ot-tip" hidden></div></div></div>`;
 }
-/* The schedule's even pace over the days shown (dotted): above it, ahead; under it, behind. */
-function schLine(t0, t1, X, Y) {
-  const sch = M.schedule;
-  if (!sch) return '';
-  const s0 = Date.parse(sch.start),
-    s1 = Date.parse(sch.end),
-    a = Math.max(t0, s0),
-    b = Math.min(t1, s1),
-    at = t => Math.min(1, Math.max(0, (t - s0) / (s1 - s0 || 1)));
-  if (!(b > a)) return '';
-  return `<path class="pj-even" d="M${X(new Date(a).toISOString().slice(0, 10)).toFixed(1)} ${Y(at(a)).toFixed(1)} L${X(new Date(b).toISOString().slice(0, 10)).toFixed(1)} ${Y(at(b)).toFixed(1)}"/>`;
+/* Breakdown › Pace: a week a column -- the files finished that week (files by state: done or validated,
+   its gain over the week before) and the files that received a retake (each once, however many its
+   retakes or their words); the pace the schedule needs from now, dotted. Shots or assets, a department:
+   Over time's. The last 16 weeks. */
+function paceChart() {
+  const o = S.ot,
+    key = o.kind === 'shot' ? 'shots' : 'assets',
+    today = new Date().toISOString().slice(0, 10);
+  const monday = d => {
+    const t = new Date(d + 'T12:00:00');
+    t.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+    return t.toISOString().slice(0, 10);
+  };
+  // Finished each day logged (done + validated), today's from the page's files.
+  const fin = {};
+  Object.entries(M.history || {}).forEach(([day, p]) => {
+    const k = (p || {})[key] || {},
+      s = o.dept ? ((k.departments || {})[o.dept] || {}).states : k.states;
+    if (s && day !== today) fin[day] = (s.done || 0) + (s.val || 0);
+  });
+  const now = stNow(o.kind, o.dept);
+  fin[today] = now.done + now.val;
+  // Retakes: the files that received one, by week.
+  const rtk = {};
+  items
+    .filter(i => i.kind === o.kind && !omitted(i))
+    .forEach(i =>
+      i.notes
+        .filter(n => n.type === 'rtk' && n.date && (!o.dept || n.deps.includes(o.dept)))
+        .forEach(n =>
+          (rtk[monday(n.date.slice(0, 10))] = rtk[monday(n.date.slice(0, 10))] || new Set()).add(i.name)
+        )
+    );
+  const daysK = Object.keys(fin).sort(),
+    firstDay = [daysK[0], ...Object.keys(rtk)].filter(Boolean).sort()[0];
+  if (!firstDay) return '';
+  const weeks = [];
+  for (let w = monday(firstDay); w <= today; ) {
+    weeks.push(w);
+    const t = new Date(w + 'T12:00:00');
+    t.setDate(t.getDate() + 7);
+    w = t.toISOString().slice(0, 10);
+  }
+  const shown = weeks.slice(-16);
+  // A week's finished: its last day's count less the last one before it (both logged), never below 0.
+  const at = day => {
+    const d = daysK.filter(x => x <= day).pop();
+    return d == null ? null : fin[d];
+  };
+  const rows = shown.map(w => {
+    const t = new Date(w + 'T12:00:00');
+    t.setDate(t.getDate() + 6);
+    const end = t.toISOString().slice(0, 10),
+      before = new Date(w + 'T12:00:00');
+    before.setDate(before.getDate() - 1);
+    const a = at(before.toISOString().slice(0, 10)),
+      b = at(end < today ? end : today);
+    return { w, done: a == null || b == null ? null : Math.max(0, b - a), rtk: (rtk[w] || new Set()).size };
+  });
+  // The pace the schedule needs: the files left over the weeks left.
+  const total = now.todo + now.wip + now.done + now.val,
+    left = total - now.done - now.val,
+    wl = M.schedule ? (Date.parse(M.schedule.end) - Date.parse(today)) / (7 * 864e5) : 0,
+    need = M.schedule && wl > 0 && left > 0 ? left / wl : null;
+  const top = Math.max(2, need ? Math.ceil(need) + 1 : 0, ...rows.map(r => Math.max(r.done || 0, r.rtk)));
+  const W = 720,
+    H = 170,
+    pl = 40,
+    pr = 112,
+    pt = 12,
+    pb = 26,
+    bw = (W - pl - pr) / rows.length,
+    Y = v => pt + (1 - v / top) * (H - pt - pb);
+  const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString(DTL(), { day: 'numeric', month: 'short' });
+  const every = Math.max(1, Math.ceil(rows.length / 6));
+  const bars = rows
+    .map((r, i) => {
+      const x = pl + i * bw,
+        w = Math.max(3, bw / 2 - 4);
+      return (
+        (r.done != null
+          ? `<rect x="${(x + 3).toFixed(1)}" y="${Y(r.done).toFixed(1)}" width="${w.toFixed(1)}" height="${(Y(0) - Y(r.done)).toFixed(1)}" rx="2" style="fill:var(--st-done)"><title>${esc(fmt(r.w))} · ${T('{n} file finished|{n} files finished', { n: r.done })}</title></rect>`
+          : '') +
+        `<rect x="${(x + 3 + w + 2).toFixed(1)}" y="${Y(r.rtk).toFixed(1)}" width="${w.toFixed(1)}" height="${(Y(0) - Y(r.rtk)).toFixed(1)}" rx="2" style="fill:var(--st-rtk)"><title>${esc(fmt(r.w))} · ${T('{n} file received a retake|{n} files received a retake', { n: r.rtk })}</title></rect>` +
+        (i % every === 0
+          ? `<text class="ot-ax" x="${(x + 3).toFixed(1)}" y="${H - 6}">${fmt(r.w)}</text>`
+          : '')
+      );
+    })
+    .join('');
+  const svg = `<svg class="ot-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${T('Pace per week')}">
+    ${[0, Math.round(top / 2), top].map(v => `<line class="ot-grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ot-ax" x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`).join('')}
+    ${bars}
+    ${need ? `<line class="pj-even" x1="${pl}" x2="${W - pr}" y1="${Y(need).toFixed(1)}" y2="${Y(need).toFixed(1)}"/><text class="ot-lab" x="${W - pr + 8}" y="${(Y(need) + 4).toFixed(1)}">${T('needed: {n} / week', { n: need < 10 ? need.toFixed(1) : Math.round(need) })}</text>` : ''}</svg>`;
+  return `<div class="ot"><div class="ot-h"><b>${T('Pace per week')}</b><span class="faint">${o.kind === 'shot' ? T('Shots') : T('Assets')}${o.dept ? ' · ' + esc(LBL[o.dept]) : ''}</span>
+    <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Files finished')}<i style="--c:var(--st-rtk)"></i>${T('Files that received a retake')}${need ? `<i class="pj-sch"></i>${T('Pace the schedule needs')}` : ''}</span></div><div class="ot-box">${svg}</div></div>`;
 }
 const OT = {};
 /* The hover: the nearest day's two figures, a line through them. */
@@ -454,6 +614,19 @@ function otHover(e) {
     }
   });
   tip.hidden = false;
+  if (OT.mode === 'st') {
+    tip.innerHTML = `<b>${new Date(best.day + 'T12:00:00').toLocaleDateString(DTL(), { weekday: 'short', day: 'numeric', month: 'short' })}${best.now ? ' · ' + T('now') : ''}</b>${ST_LAYERS()
+      .slice()
+      .reverse()
+      .map(
+        ([k, c, l]) =>
+          `<span><i style="--c:${c}"></i>${l()} <b>${(best.s[k] || 0) + (k === 'done' && !VAL() ? best.s.val || 0 : 0)}</b></span>`
+      )
+      .join('')}`;
+    const left = (bx / g.W) * r.width;
+    tip.style.left = Math.min(Math.max(left + 12, 0), r.width - tip.offsetWidth) + 'px';
+    return;
+  }
   tip.innerHTML = `<b>${new Date(best.day + 'T12:00:00').toLocaleDateString(DTL(), { weekday: 'short', day: 'numeric', month: 'short' })}${best.now ? ' · ' + T('now') : ''}</b><span><i style="--c:var(--st-done)"></i>${T('Done')} <b>${pct(best.done)}</b></span><span><i style="--c:var(--st-val)"></i>${T('Validated')} <b>${pct(best.val)}</b></span>`;
   const left = (bx / g.W) * r.width;
   tip.style.left = Math.min(Math.max(left + 12, 0), r.width - tip.offsetWidth) + 'px';

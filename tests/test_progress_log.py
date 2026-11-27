@@ -36,7 +36,10 @@ def main() -> None:
         "assets": [],
     }
     f = pl.figures(snap)
-    assert f["shots"]["done"] == 0.5 and f["shots"]["departments"]["anim"] == {"done": 0.75, "validated": 0.5}, f
+    assert f["shots"]["done"] == 0.5 and f["shots"]["departments"]["anim"] == {
+        "done": 0.75, "validated": 0.5, "states": {"todo": 0, "wip": 1, "done": 0, "val": 1}}, f
+    # Files by state (Breakdown): the one set aside out of them.
+    assert f["shots"]["states"] == {"todo": 0, "wip": 1, "done": 0, "val": 1}, f["shots"]
 
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
