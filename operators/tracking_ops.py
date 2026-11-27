@@ -1388,6 +1388,12 @@ class M_PIPELINE_OT_toggle_worked_department(bpy.types.Operator):
     bl_options = {"INTERNAL"}
 
     department: bpy.props.StringProperty()
+    # Waiting / To redo: its reason, here rather than on the button (too long for the panel).
+    custom_tooltip: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+
+    @classmethod
+    def description(cls, context, properties):
+        return properties.custom_tooltip or cls.bl_description
 
     def execute(self, context):
         filepath = Path(bpy.data.filepath)

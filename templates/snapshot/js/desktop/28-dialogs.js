@@ -105,6 +105,7 @@ const rform = it =>
     prio: 10,
     mode: 'all',
     sound: 'on',
+    inc: 'on',
     off: {},
     start: '',
     end: '',
@@ -137,6 +138,7 @@ function renderDlg() {
     <div class="prop"><span class="k">${T('Priority')}</span><span class="v"><span class="prio"><button class="btn sm icon" data-rprio="-1" aria-label="${T('Lower')}">−</button><b>${f.prio}</b><button class="btn sm icon" data-rprio="1" aria-label="${T('Higher')}">+</button><span class="faint">${T('the highest goes first')}</span></span></span></div>
     <div class="prop"><span class="k">${T('Machines')}</span><span class="v"><span class="join">${seg('mode', 'all', T('All'))}${seg('mode', 'single', T('Only one'))}</span></span></div>
     <div class="prop"><span class="k">${T('Sound')}</span><span class="v"><button class="swi" role="switch" data-rfsw="sound" aria-checked="${f.sound !== 'off'}" title="${T("The scene's sound (sequencer, speakers) in the video")}"><span class="lbl">${f.sound !== 'off' ? T('With sound') : T('Without sound')}</span><span class="tg"></span></button></span></div>
+    <div class="prop"><span class="k">${T('Increment')}</span><span class="v"><button class="swi" role="switch" data-rfsw="inc" aria-checked="${f.inc !== 'off'}" title="${T("On: a new render folder (v003_002). Off: this version's last render folder rendered again, its frames replaced")}"><span class="lbl">${f.inc !== 'off' ? T('A new render folder') : T('The last one, rendered again')}</span><span class="tg"></span></button></span></div>
     ${it.shots && it.shots.length > 1 ? `<div class="prop"><span class="k">${T('Shots')}</span><span class="v"><span class="join">${it.shots.map(x => `<button class="btn sm" data-rshot="${x}" aria-pressed="${!f.off[x]}">${x}</button>`).join('')}</span></span></div>` : ''}
     <div class="acts">${it.kind === 'shot' ? `<button class="btn" data-rprev title="${T('The last videos of each shot of {seq}, end to end', { seq: it.group })}">${T('Preview {seq}', { seq: it.group })}</button>` : ''}<span style="flex:1"></span><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-rsend>${ic('b-export')}${T('Send to the farm')}</button></div></div>`;
 }

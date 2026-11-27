@@ -32,6 +32,20 @@ All notable changes to this addon. Dates are release dates.
   *No shot yet.* and *New shot…* / *New asset…*; planned files in a new
   sequence (prefix) listed in their own group; starting a review from Assets
   stays there.
+- Blender, Render (the list's, a file to pick): the departments of the kind
+  picked -- Shot or Preview the shots', Asset / Library the assets' -- no
+  longer both mixed; switching kind drops a department of the other.
+- Blender, Working on: a department waiting or to redo says it by its icon
+  alone, why in its tooltip -- the reason made the button too wide.
+- Live page, the list's Renders column: *rendering…* opens its job in Farm
+  (the job's id never reached the page).
+- Live page, Render: *Increment* -- off, this version's last render folder
+  rendered again (Blender's Render dialog had it, not the page).
+- Live page, Watch large: the version line keeps one height whether the file
+  has one version or several (A / B): the timeline no longer moves from one
+  shot to the next.
+- The detail panel with no file selected: no empty tab strip beside *Pick a
+  file in the list*.
 - The phone's page, a review: a note's replies shown under it, and
   *Reply* to one (taken back with its arrow) -- only the desktop page had
   them.

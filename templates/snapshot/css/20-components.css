@@ -2327,8 +2327,9 @@ body::after {
   border-right: 1px solid var(--line);
   flex: none;
 }
-.vtabs[hidden] {
-  display: none;
+.vtabs[hidden],
+.vtabs:empty {
+  display: none; /* no file selected: no tabs, not an empty strip beside "Pick a file" */
 }
 .vtab {
   width: calc(36px * var(--scale));
@@ -2843,6 +2844,9 @@ button.assign:hover {
   gap: var(--sp-4);
   flex-wrap: nowrap;
   min-width: 0;
+  /* A button's height whatever it holds: one version (its name alone) or several (A / B, menus) --
+     the timeline above no longer moves from one shot to the next. */
+  min-height: var(--u);
 }
 .bigf {
   font: 600 calc(22px * var(--scale)) var(--mono);

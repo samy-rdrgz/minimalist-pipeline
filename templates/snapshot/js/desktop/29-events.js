@@ -64,8 +64,9 @@ function v6Click(t) {
   }
   const rsw = t.closest('[data-rfsw]');
   if (rsw) {
-    const f = rform(cur());
-    f.sound = f.sound === 'off' ? 'on' : 'off';
+    const f = rform(cur()),
+      k = rsw.dataset.rfsw; // sound, inc
+    f[k] = f[k] === 'off' ? 'on' : 'off';
     renderDlg();
     return true;
   }

@@ -93,14 +93,20 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             for d in required:
                 flag = flags.get(d) or {}
                 row = col.row(align=True)
+                # The department alone on the button, its icon saying waiting / to redo;
+                # why in its tooltip (a reason made the button too wide for the panel).
                 op = row.operator(
                     "m_pipeline.toggle_worked_department",
-                    text=d + (f" · waiting: {flag['waiting']}" if flag.get("waiting")
-                              else f" · to redo: {flag['to_redo']}" if flag.get("to_redo") else ""),
+                    text=d,
                     **icon_kw("mark:waiting" if flag.get("waiting") else "mark:to_redo" if flag.get("to_redo") else "NONE"),
                     depress=d in worked,
                 )
                 op.department = d
+                if flag.get("waiting") or flag.get("to_redo"):
+                    op.custom_tooltip = (
+                        (f"Waiting: {flag['waiting']}." if flag.get("waiting") else f"To redo: {flag['to_redo']}.")
+                        + "\nClick: worked on this session, or not"
+                    )
                 if stable:
                     is_done = bool(done_now.get(d))
                     mark = row.operator("m_pipeline.department_mark_done", text="",

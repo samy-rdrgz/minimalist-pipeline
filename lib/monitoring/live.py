@@ -1593,7 +1593,8 @@ def _farm_submit(action: str, raw: dict) -> dict:
         user=user,
         priority=priority,
         render_mode="single" if raw.get("mode") == "single" else "all",
-        increment=True,
+        # The form's Increment (an older page, none: on).
+        increment=raw.get("increment") is not False,
         prerender_script="" if preset == _NO_SCRIPT else preset,
         overrided_frame_range=tuple(frames),
         only_shots=shots,

@@ -149,7 +149,7 @@ def _get_pre_render_scripts(self, context):
             own = {(json_get(config, "farm.department_presets", {}) or {}).get(dept)}
             keep = [i for i in items[1:] if i[0] in own or preset_department(i[0], [dept])]
         else:
-            kind = {d.lower() for d in _file_departments(getattr(self, "filepath", "") or "")}
+            kind = {d.lower() for d in _dialog_departments(self)}
             keep = [i for i in items[1:] if preset_department(i[0], departments) in kind | {""}]
         items = [items[0], *keep]
     return _stable_enum_items(_pre_render_scripts, items)
@@ -172,10 +172,29 @@ def _file_departments(filepath: str) -> list[str]:
     return shots if is_shot else assets
 
 
+def _dialog_departments(op) -> list[str]:
+    """The Render dialog's departments: its file's kind's; no file yet (the
+    list's Render, a file to pick), those of the kind picked (Shot or
+    Preview: the shots'; Asset / Library: the assets') -- never both mixed."""
+    filepath = getattr(op, "filepath", "") or ""
+    if filepath:
+        return _file_departments(filepath)
+    config = ConfigCache.get() or {}
+    key = "assets_departments" if getattr(op, "file_type", "shot") == "asset" else "shots_departments"
+    return list(json_get(config, key, []) or [])
+
+
+def _file_type_changed(self, context):
+    """Shot / Asset switched in the list's Render: a department of the other
+    kind no longer offered -- back to none (its preset with it)."""
+    if self.department != _NO_DEPT and self.department not in _dialog_departments(self):
+        self.department = _NO_DEPT
+
+
 def _get_departments(self, context):
     """The Render dialog's department picker: the file's kind's departments."""
     items = [(_NO_DEPT, "No department", "Its render counts for no department")]
-    items += [(d, d, f"A render for {d}: its to check and last render") for d in _file_departments(self.filepath)]
+    items += [(d, d, f"A render for {d}: its to check and last render") for d in _dialog_departments(self)]
     return _stable_enum_items(_department_items_cache, items)
 
 
@@ -472,6 +491,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             ),
         ],
         default="shot",
+        update=lambda self, context: _file_type_changed(self, context),
     )
 
     # Asset cascade: prefix → folder
@@ -587,7 +607,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         # been worked or done for (its preset with it: _department_changed()),
         # else its last render's -- never the dialog's last one.
         dept = furthest_department(self.filepath) or last_render(self.filepath).get("department") or ""
-        self.department = dept if dept and dept in _file_departments(self.filepath) else _NO_DEPT
+        self.department = dept if dept and dept in _dialog_departments(self) else _NO_DEPT
         _department_changed(self, context)  # its update may not run from invoke()
         if self.filepath:
             self._populate_subshots(context)

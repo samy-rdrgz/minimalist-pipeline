@@ -189,9 +189,10 @@ function farmCell(it) {
     out = [];
   if (f) {
     const m = String(f.text || '').match(/(\d+)\/(\d+)/),
-      p = m ? +m[1] / +m[2] : null;
+      p = m ? +m[1] / +m[2] : null,
+      go = LIVE && f.id; // a snapshot has no Farm tab to open it in
     out.push(
-      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" ${f.id ? `role="button" tabindex="0" data-gojob="${esc(f.id)}"` : ''} title="${esc(TS(f.tip || f.text))}${f.id ? ' · ' + T('a click: this job, in Farm') : ''}">${ic(f.state === 'waiting' ? 'b-time' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}${f.department ? ' · ' + esc(LBL[f.department] || f.department) : ''}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
+      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" ${go ? `role="button" tabindex="0" data-gojob="${esc(f.id)}"` : ''} title="${esc(TS(f.tip || f.text))}${go ? ' · ' + T('a click: this job, in Farm') : ''}">${ic(f.state === 'waiting' ? 'b-time' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}${f.department ? ' · ' + esc(LBL[f.department] || f.department) : ''}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
     );
   }
   if (it.toCheck)

@@ -880,7 +880,7 @@ _STATE_ORDER = {"running": 0, "waiting": 1, "failed": 2}
 
 def farm_activity() -> dict[str, list[dict]]:
     """Render jobs of the monitor cache that aren't finished -- queued, in
-    progress or failed -- by owner folder (lib owner_key()): [{"shot",
+    progress or failed -- by owner folder (lib owner_key()): [{"job_id", "shot",
     "stage", "state", "text", "department", "version"}], state entry_state()'s ("waiting"
     for a pending request or a render nobody's on), version its render folder once set up ("v003_001"),
     else its .blend's ("v003"); sorted by shot. Memory only: draw()-safe."""
@@ -908,6 +908,8 @@ def farm_activity() -> dict[str, list[dict]]:
         output_dir = job.get("output_dir")
         out.setdefault(owner_key(Path(root) / filepath), []).append(
             {
+                # Its id: the live page's list opens it in the Farm tab.
+                "job_id": job.get("job_id") or "",
                 "shot": job.get("shot_override") or "",
                 "stage": stage,
                 "state": state,
