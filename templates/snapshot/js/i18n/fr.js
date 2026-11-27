@@ -84,6 +84,7 @@ MPI18n.add('fr',{
 '{who}, {date}':'{who}, {date}',
 'end':'fin',
 'Projection':'Projection',
+'Until today':'Jusqu\'à aujourd\'hui',
 'Schedule':'Planning',
 'today':'aujourd’hui',
 'The schedule ends in {when}.':'Le planning finit en {when}.',

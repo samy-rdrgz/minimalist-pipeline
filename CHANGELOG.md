@@ -13,6 +13,13 @@ All notable changes to this addon. Dates are release dates.
 - Live page, Farm: a job of one shot of a block says it in its file's name
   -- that shot's number strong, the block's others faint
   (sq040_sh030-**040**-045_v001); the whole block as is. The phone too.
+- Live page, Farm: the machines on top, then a block per state (in progress,
+  waiting, failed, finished) folded as the sequences' are; a job on one
+  line -- its name, its shot and step after it, its bar beside its frames.
+- Live page, Breakdown: Over time and Projection one chart -- *Until today*
+  or *Projection* (the same days, then the cone), its shots / assets and its
+  department for both; the schedule's even pace dotted over the days too
+  (above it, ahead; under it, behind).
 - Live page, Watch large in full screen: its header hidden at first (its
   tab shows it).
 - A shot or asset created from the page: its description as typed, none

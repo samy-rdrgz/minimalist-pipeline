@@ -115,7 +115,7 @@ function jobRow(j) {
     meta = [j.machines ? T('{n} machine|{n} machines', { n: j.machines }) : '', esc(j.user), fmtD(j.at)]
       .filter(Boolean)
       .join(' · ');
-  return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${jobName(j)}</span><span class="s">${esc([j.shot, TS(j.text)].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
+  return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${jobName(j)}</span><span class="s">${esc([jobName(j) === esc(j.file) ? j.shot : '', TS(j.text)].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
     <span class="jbar">${
       // An ffmpeg pass (frame check, compilation, preview): its own progress, after the frames'.
       j.compile != null
@@ -137,14 +137,16 @@ function renderFarm() {
     ? ''
     : `<div class="fme">${jst('failed')}<span class="t"><b>${F.status === 'stale' ? T('The farm is stuck') : T('The farm is stopped')}</b>
       <span class="faint">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · <span class="bad">${T('monitor {state}', { state: st })}</span></span></span>${monitorBtn()}</div>`;
+  // The machines first, then a block per state, folded as the sequences' (its title: S.closed, "farm:<state>").
+  h += machinesHTML();
   h += JS.map(([s, l]) => {
-    const js = shown.filter(j => j.state === s);
+    const js = shown.filter(j => j.state === s),
+      k = 'farm:' + s;
     if (!js.length) return '';
-    return `<div class="grp"><div class="grp-h"><b>${l}</b><span class="cnt">${js.length}</span><span style="flex:1"></span>${s === 'failed' || s === 'finished' ? `<button class="btn sm tool" data-farm="archive_all" data-v="${s}">${s === 'failed' ? T('Archive the failed') : T('Archive the finished')}</button>` : ''}</div><div class="jobs">${js.map(jobRow).join('')}</div></div>`;
+    return `<div class="grp ${S.closed.has(k) ? 'closed' : ''}"><div class="grp-h"><button class="ttl" data-fold="${k}" aria-expanded="${!S.closed.has(k)}">${ic('b-downarrow_hlt', 'i tri open')}${ic('b-rightarrow', 'i tri shut')}<b>${l}</b><span class="cnt">${js.length}</span></button><span style="flex:1"></span>${s === 'failed' || s === 'finished' ? `<button class="btn sm tool" data-farm="archive_all" data-v="${s}">${s === 'failed' ? T('Archive the failed') : T('Archive the finished')}</button>` : ''}</div><div class="jobs">${js.map(jobRow).join('')}</div></div>`;
   }).join('');
   if (!shown.length)
     h += `<div class="empty">${F.jobs.some(j => !j.archived) ? T('No job matches.') : T('No job in the farm.')}</div>`;
-  h += machinesHTML();
   L.innerHTML = h;
 }
 function renderFarmDetail(H, B) {
@@ -386,7 +388,8 @@ function machinesHTML() {
   const farmNow = farmUp()
     ? `<span class="faint mh-farm">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · ${T('monitor {state}', { state: st })} · ${T('Now: {what}', { what: hostNow(me.host_now) })}</span><span style="flex:1"></span>${monitorBtn('sm')}`
     : `<span class="faint" style="font-size:var(--fs-s)">${T('who has which file open, and the workers')}</span>`;
-  return `<div class="grp"><div class="grp-h"><b>${T('Machines')}</b><span class="cnt">${ms.length}</span>${farmNow}</div>
+  const k = 'farm:machines';
+  return `<div class="grp ${S.closed.has(k) ? 'closed' : ''}"><div class="grp-h"><button class="ttl" data-fold="${k}" aria-expanded="${!S.closed.has(k)}">${ic('b-downarrow_hlt', 'i tri open')}${ic('b-rightarrow', 'i tri shut')}<b>${T('Machines')}</b><span class="cnt">${ms.length}</span></button>${farmNow}</div>
     ${
       ms.length
         ? `<div class="mnodes">${ms

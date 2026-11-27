@@ -323,7 +323,7 @@ function renderSynth() {
     ${M.schedule ? `<div class="kpi"><span class="t">${T('Schedule · day {d} / {total}', { d: M.schedule.elapsed_days, total: M.schedule.total_days })}</span><span class="sf sch ${M.progress.shot >= IN ? 'in' : ''}" style="--p:${M.progress.shot * 100}%;--c:var(--st-done);--e:${M.schedule.expected * 100}%" title="${T('The line: where the shots should be today')}"><span class="lab ${M.progress.shot >= 0.45 ? 'on' : ''}">${T('Shots done')}</span><b class="v">${pct(M.progress.shot)}</b><i class="mk2"></i></span><span class="faint">${T('expected {pct}', { pct: pct(M.schedule.expected) })} · ${M.progress.shot < M.schedule.expected ? '<span class="bad">' + T('{n} points behind', { n: Math.round((M.schedule.expected - M.progress.shot) * 100) }) + '</span>' : T('on time')}</span></div>` : ''}
     <div class="kpi"><span class="t">${T('Set aside')}</span><span class="big">${items.filter(omitted).length}</span><span class="faint">${T('on hold or cancelled, out of the figures')}</span></div></div>
   ${S.weights ? `<p class="weights">${T("A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don't count. Validated is counted apart: by the role {role}, on the stable shown.", { wip: (M.weights || {}).wip ?? 33, rework: (M.weights || {}).rework ?? 67, rtk: (M.weights || {}).rtk ?? 67, role: esc(M.role) })} ${T('The bar: each department in one state -- validated, done, in retake (done with an open retake, one or ten), in progress (reworked too), to do (not started, a retake on it or not).')}</p>` : ''}
-  ${table('shot', T('Shots'))}${table('asset', T('Assets'))}${overTime()}${projection()}${activity()}`;
+  ${table('shot', T('Shots'))}${table('asset', T('Assets'))}${overTime()}${activity()}`;
 }
 /* Over time: one point a day (lib/monitoring/progress_log.py), Done and Validated of the shots
    or the assets, all or one department; today's from the page's own figures when not logged yet. */
@@ -352,10 +352,12 @@ function overTime() {
     pt = 12,
     pb = 26;
   const deps = DEPTS[o.kind] || [];
-  const head = `<div class="ot-h"><b>${T('Over time')}</b><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
+  const head = `<div class="ot-h"><b>${T('Over time')}</b><span class="join">${[['', T('Until today')], ['ahead', T('Projection')]].map(([k, l]) => `<button class="btn sm" data-otv="${k}" aria-pressed="${(o.view || '') === k}">${l}</button>`).join('')}</span><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
     <span class="anchor"><button class="enum" data-menu="m-otd" aria-haspopup="true" aria-expanded="false"><span class="lb">${o.dept ? esc(LBL[o.dept]) : T('All departments')}</span>${ic('b-downarrow_hlt')}</button><div class="menu" id="m-otd" hidden role="menu">${['', ...deps].map(d => `<button class="mi" data-otd="${esc(d)}"><span class="ck">${d === o.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(LBL[d]) : T('All departments')}</span></button>`).join('')}</div></span>
     <button class="btn flat icon live-only" data-otreload aria-label="${T('Read the project again')}" title="${T("Read the project again: today's point brought up to date")}">${ic('b-file_refresh')}</button>
-    <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Done')}<i style="--c:var(--st-val)"></i>${T('Validated')}</span></div>`;
+    <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Done')}<i style="--c:var(--st-val)"></i>${T('Validated')}${M.schedule ? `<i class="pj-sch"></i>${T('Schedule')}` : ''}</span></div>`;
+  // Projection: the same days, then where their pace leads (21-projection.js), on the same header.
+  if (o.view === 'ahead') return projection(head);
   if (pts.length < 2)
     return `<div class="ot">${head}<p class="faint ot-empty">${T('One point a day, from the snapshots and the live page: the curve starts with the second day.')}</p></div>`;
   const t0 = Date.parse(pts[0].day),
@@ -384,6 +386,7 @@ function overTime() {
   const svg = `<svg class="ot-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${T('Over time')}">
     ${[0, 0.5, 1].map(v => `<line class="ot-grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ot-ax" x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${v * 100} %</text>`).join('')}
     ${ticks.map(i => `<text class="ot-ax" x="${X(pts[i].day)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'}">${fmt(pts[i].day)}</text>`).join('')}
+    ${schLine(t0, t1, X, Y)}
     <path class="ot-l" style="--c:var(--st-val)" d="${line('val')}"/><path class="ot-l" style="--c:var(--st-done)" d="${line('done')}"/>
     ${ld ? `<circle class="ot-end" style="--c:var(--st-done)" cx="${X(ld.day)}" cy="${Y(ld.done)}" r="4"/><text class="ot-lab" x="${X(ld.day) + 10}" y="${yd + 4}">${T('Done')} ${pct(ld.done)}</text>` : ''}
     ${lv ? `<circle class="ot-end" style="--c:var(--st-val)" cx="${X(lv.day)}" cy="${Y(lv.val)}" r="4"/><text class="ot-lab" x="${X(lv.day) + 10}" y="${yv + 4}">${T('Validated')} ${pct(lv.val)}</text>` : ''}
@@ -392,6 +395,18 @@ function overTime() {
   OT.pts = pts;
   OT.geo = { X, Y, W, pl, pr };
   return `<div class="ot">${head}<div class="ot-box">${svg}<div class="ot-tip" hidden></div></div></div>`;
+}
+/* The schedule's even pace over the days shown (dotted): above it, ahead; under it, behind. */
+function schLine(t0, t1, X, Y) {
+  const sch = M.schedule;
+  if (!sch) return '';
+  const s0 = Date.parse(sch.start),
+    s1 = Date.parse(sch.end),
+    a = Math.max(t0, s0),
+    b = Math.min(t1, s1),
+    at = t => Math.min(1, Math.max(0, (t - s0) / (s1 - s0 || 1)));
+  if (!(b > a)) return '';
+  return `<path class="pj-even" d="M${X(new Date(a).toISOString().slice(0, 10)).toFixed(1)} ${Y(at(a)).toFixed(1)} L${X(new Date(b).toISOString().slice(0, 10)).toFixed(1)} ${Y(at(b)).toFixed(1)}"/>`;
 }
 const OT = {};
 /* The hover: the nearest day's two figures, a line through them. */

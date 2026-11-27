@@ -737,7 +737,13 @@ document.addEventListener('click', e => {
   }
   const otk = t.closest('[data-otk]');
   if (otk) {
-    S.ot = { kind: otk.dataset.otk, dept: '' };
+    S.ot = { kind: otk.dataset.otk, dept: '', view: S.ot.view };
+    renderList();
+    return;
+  }
+  const otv = t.closest('[data-otv]');
+  if (otv) {
+    S.ot.view = otv.dataset.otv;
     renderList();
     return;
   }

@@ -2529,7 +2529,8 @@ button.assign:hover {
      hover -- the row never changes height. */
   align-items: center;
   --jl: calc(20px * var(--scale)); /* a first line's height: the icon's */
-  padding: var(--sp-6) var(--sp-7);
+  /* One line: its name, its shot and step after it; its bar beside its frames. */
+  padding: var(--sp-3) var(--sp-7);
   border-bottom: 1px solid var(--row-hover);
   cursor: pointer;
   position: relative; /* its rail when picked (.job.sel::before) */
@@ -2548,10 +2549,9 @@ button.assign:hover {
   gap: var(--sp-1);
 }
 .job .jt {
-  justify-content: center;
-  gap: 0; /* the step's words' padding instead: folded with them */
-  align-self: stretch;
-  min-height: calc(var(--jl) + var(--sp-1) + var(--fs-s) * 1.35); /* its name, the step's words */
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--sp-5);
 }
 .job .f {
   font: 500 var(--fs) var(--mono);
@@ -2560,10 +2560,17 @@ button.assign:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.job .f {
+  flex: 0 1 auto;
+}
 .job .s {
-  color: var(--text-2);
+  flex: 1 1 0;
+  min-width: 0;
+  color: var(--text-3);
   font-size: var(--fs-s);
-  padding-top: var(--sp-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .job .s .tag {
   margin-left: var(--sp-3); /* Render here: local, viewport */
@@ -2582,6 +2589,21 @@ button.assign:hover {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
+}
+/* A job's row: its bar and its frames side by side (one line). */
+.job .jbar {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.job .jbar i {
+  flex: 1;
+  min-width: calc(40px * var(--scale));
+}
+.job .jbar span {
+  white-space: nowrap;
+}
+.jbar {
   font-size: var(--fs-s);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
@@ -5139,24 +5161,6 @@ button.mn-h:hover {
   .dept:not(:hover):not(.hov):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])) {
     margin-top: calc(-1 * var(--sp-2));
   }
-  /* The Farm tab: a job's step's words (its group and its icon say its state), folded -- its name,
-     centred at rest, pushed up on hover; the row's height kept (.job .jt). */
-  .job .s {
-    max-height: calc(var(--fs-s) * 1.35 + var(--sp-1));
-    overflow: hidden;
-    transition:
-      max-height calc(0.22s * var(--hk, 1)) ease,
-      padding calc(0.22s * var(--hk, 1)) ease,
-      opacity calc(0.18s * var(--hk, 1)) ease,
-      visibility calc(0.18s * var(--hk, 1));
-  }
-  .job:not(:hover):not(.hov):not(.sel) .s {
-    max-height: 0;
-    padding-top: 0;
-    opacity: 0;
-    visibility: hidden;
-    --hk: 0.4;
-  }
   /* Narrowed to nothing too, not only faded: a card's buttons beside its words, a note's pen in its
      header -- left in place, they'd push the words to a second line. */
   .dept .acts,
@@ -5298,4 +5302,11 @@ button.mn-h:hover {
 }
 .jsub-o {
   opacity: 0.45;
+}
+
+/* The Farm tab's blocks folded as the sequences' (their title a button: data-fold "farm:<state>"). */
+.grp.closed .jobs,
+.grp.closed .mnodes,
+.grp.closed > :not(.grp-h) {
+  display: none;
 }
