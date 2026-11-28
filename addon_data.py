@@ -136,7 +136,16 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         from .operators.team_ops import draw_user_name
 
         draw_user_name(col_infos, self, text="User name")
-        col_infos.prop(self, "user_role")
+        role = col_infos.row()
+        try:
+            from .lib import ConfigCache
+
+            off = (ConfigCache.get() or {}).get("validation") is False
+        except Exception:
+            off = False
+        # A project without validation (Project settings): no role to be.
+        role.enabled = not off
+        role.prop(self, "user_role", text="User role" + (" (this project: no validation)" if off else ""))
         ro = col_infos.column()
         ro.active = False
         ro.enabled = False

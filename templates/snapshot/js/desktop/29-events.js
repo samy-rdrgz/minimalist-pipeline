@@ -10,6 +10,28 @@ function v6Click(t) {
     setTimeout(() => tour(0), 50);
     return true;
   }
+  if (t.closest('[data-bdrop]')) {
+    LS.set('mp-snapshot.backdrop', bdropOn() ? '0' : '');
+    syncBackdrop();
+    return true;
+  }
+  const np = t.closest('[data-newplan]');
+  if (np) {
+    closeMenus();
+    if (!S.review) {
+      msg(T('Start a review first: a new file is made when it is imported'));
+      return true;
+    }
+    // Its sequence or prefix: the selected file's, else the first one -- changed in the dialog.
+    const k = np.dataset.newplan,
+      c = cur(),
+      g =
+        c && c.kind === k
+          ? groupOf(c)
+          : (items.find(i => i.kind === k) && groupOf(items.find(i => i.kind === k))) || (k === 'shot' ? plSeq(10) : plPrefixes()[0] || '');
+    planDlg(g, k);
+    return true;
+  }
   const th = t.closest('[data-theme]');
   if (th) {
     setTheme(th.dataset.theme);
@@ -42,8 +64,9 @@ function v6Click(t) {
   }
   const rsw = t.closest('[data-rfsw]');
   if (rsw) {
-    const f = rform(cur());
-    f.sound = f.sound === 'off' ? 'on' : 'off';
+    const f = rform(cur()),
+      k = rsw.dataset.rfsw; // sound, inc
+    f[k] = f[k] === 'off' ? 'on' : 'off';
     renderDlg();
     return true;
   }
@@ -138,7 +161,7 @@ function v6Click(t) {
     if (err.length || (warn.length && !PL.anyway)) return true;
     const name = plName(),
       sh = PL.kind === 'shot',
-      ord = [...PL.shots].sort((a, b) => a.n - b.n);
+      ord = sh ? [...PL.shots].sort((a, b) => a.n - b.n) : []; // an asset has no shots
     A.plan({
       name,
       g: PL.g,
@@ -296,7 +319,7 @@ function helpDlg() {
   dl.hidden = false;
   dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="hl-t"><h3 id="hl-t">${TOUCH() ? T('Legend') : T('Legend and keys')}</h3>
     <p class="faint" style="margin:0">${T('The diamond says the state, the corner what comes on top. The words beside it always say it again.')}</p>
-    <ul class="legend-list">${L.map(([b, c, l, s, n, r]) => `<li>${glyph(b, c, 2, !!n, r)}<span>${l}<small>${s}</small></span></li>`).join('')}</ul>
+    <ul class="legend-list">${L.filter(([b, c]) => VAL() || !['sup', 'val', 'old'].includes(b)).map(([b, c, l, s, n, r]) => `<li>${glyph(b, c, 2, !!n, r)}<span>${l}<small>${s}</small></span></li>`).join('')}</ul>
     <div class="legend-keys"><div class="sec-h">${T('Keys')}</div>
     <ul class="legend-list" style="gap:6px">${[
       ['↑ ↓', T('previous / next file')],
@@ -533,6 +556,21 @@ document.addEventListener('click', e => {
     renderWide();
     return;
   }
+  // Last renders' ▶: its shot (a block's) in the player, then that version among the shot's own.
+  const lv = t.closest('[data-lver]');
+  if (lv) {
+    const it = cur(),
+      v = it && it.versions[+lv.dataset.lver];
+    if (v) {
+      S.shot[it.name] = v.shot || '';
+      S.ver[it.name] = Math.max(0, versOf(it).indexOf(v));
+      S.frame = 1;
+    }
+    if (S.tab === 'renders' && !S.wide) S.tab = 'plan';
+    renderProps();
+    renderWide();
+    return;
+  }
   const vr = t.closest('[data-ver]');
   if (vr) {
     S.ver[S.sel] = +vr.dataset.ver;
@@ -699,7 +737,13 @@ document.addEventListener('click', e => {
   }
   const otk = t.closest('[data-otk]');
   if (otk) {
-    S.ot = { kind: otk.dataset.otk, dept: '' };
+    S.ot = { kind: otk.dataset.otk, dept: '', view: S.ot.view };
+    renderList();
+    return;
+  }
+  const otv = t.closest('[data-otv]');
+  if (otv) {
+    S.ot.view = otv.dataset.otv;
     renderList();
     return;
   }
@@ -806,7 +850,7 @@ document.addEventListener('click', e => {
     S.quick = null;
     S.dept = null;
     if ((S.ws === 'shot' || S.ws === 'asset') && cur()?.kind !== S.ws)
-      S.sel = items.find(i => i.kind === S.ws).name;
+      S.sel = items.find(i => i.kind === S.ws)?.name ?? null;
     if (S.ws === 'links') S.tab = 'links';
     else if (S.tab === 'links' && S.ws !== 'synth') S.tab = 'plan';
     renderAll();
@@ -938,7 +982,8 @@ document.addEventListener('click', e => {
     S.sel = f.name;
     S.wide = true;
     S.frame = 1;
-    S.seqPlay = true;
+    delete S.shot[f.name]; // a block: from its first sub-shot
+    S.seqPlay = sq.dataset.seq; // this sequence, stopped at its end
     renderAll();
     if (!S.playing) togglePlay();
     msg(T('Playing {seq}: the shots one after the other', { seq: sq.dataset.seq }));
@@ -1597,6 +1642,7 @@ document.addEventListener('change', e => {
     const f = e.target.files[0];
     e.target.value = '';
     closeMenus();
+    if (isMob()) S.m.sheet = null;
     loadReview(f);
   }
 });

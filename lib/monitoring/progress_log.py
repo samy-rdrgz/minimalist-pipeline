@@ -38,9 +38,44 @@ def _mean(values) -> float | None:
     return round(sum(values) / len(values), 4) if values else None
 
 
+_DONE = ("done", "rework")
+
+
+def _dept_state(item: dict, d: str) -> str:
+    """A department's state as Breakdown's files by state counts it: "val"
+    validated, "done", "wip" (started), "todo"."""
+    if (item.get("validated") or {}).get(d):
+        return "val"
+    st = (item.get("departments") or {}).get(d) or "todo"
+    return "done" if st in _DONE else "todo" if st == "todo" else "wip"
+
+
+def _file_state(item: dict) -> str:
+    """A file's: "val" every required department validated, "done" every
+    one done (or validated), "todo" none started, else "wip"."""
+    states = [_dept_state(item, d) for d in item.get("departments") or {}]
+    if not states:
+        return "todo"
+    if all(s == "val" for s in states):
+        return "val"
+    if all(s in ("val", "done") for s in states):
+        return "done"
+    return "todo" if all(s == "todo" for s in states) else "wip"
+
+
+def _count(states) -> dict:
+    out = {"todo": 0, "wip": 0, "done": 0, "val": 0}
+    for s in states:
+        out[s] += 1
+    return out
+
+
 def figures(snapshot: dict) -> dict:
     """build_snapshot()'s numbers, for a point: {"shots"|"assets": {"done",
-    "validated", "departments": {d: {"done", "validated"}}}}."""
+    "validated", "states", "departments": {d: {"done", "validated",
+    "states"}}}} -- "states": how many files in each state ({"todo", "wip",
+    "done", "val"}, _file_state() / _dept_state()), Breakdown's files by
+    state."""
     meta = snapshot.get("meta") or {}
     out = {}
     for kind, key in (("shots", "shot"), ("assets", "asset")):
@@ -51,10 +86,12 @@ def figures(snapshot: dict) -> dict:
             deps[d] = {
                 "done": _mean((i.get("scores") or {}).get(d) for i in mine),
                 "validated": _mean(float(bool((i.get("validated") or {}).get(d))) for i in mine),
+                "states": _count(_dept_state(i, d) for i in mine),
             }
         out[kind] = {
             "done": (meta.get("progress") or {}).get(key),
             "validated": (meta.get("validation") or {}).get(key),
+            "states": _count(_file_state(i) for i in items),
             "departments": deps,
         }
     return out
@@ -73,6 +110,11 @@ def days(root: Path) -> dict:
 def has_figures(point) -> bool:
     """A day's point holds its finished figures (not only its activity)."""
     return isinstance(point, dict) and ("shots" in point or "assets" in point)
+
+
+def has_states(point) -> bool:
+    """Its figures with their files by state (2.1): a point of before, without."""
+    return has_figures(point) and all("states" in (point.get(k) or {"states": 1}) for k in ("shots", "assets"))
 
 
 _last: dict[str, tuple] = {}  # root: (day, figures) last written by this Blender
@@ -357,7 +399,7 @@ def rebuild(root: Path, folders: list, config: dict, today: str | None = None) -
                 snap["meta"]["progress"][kind] = average_progress(snap[f"{kind}s"])
                 snap["meta"]["validation"][kind] = average_progress(snap[f"{kind}s"], "validation")
             figs = figures(snap)
-        if not has_figures(logged.get(key)):
+        if not has_states(logged.get(key)):
             out[key] = figs
         day += timedelta(days=1)
     if not out:
@@ -367,8 +409,18 @@ def rebuild(root: Path, folders: list, config: dict, today: str | None = None) -
         data = box["data"] if isinstance(box["data"], dict) else {}
         known = data.setdefault("days", {})
         for key, point in out.items():
-            if not has_figures(known.get(key)):
-                known[key] = {**(known.get(key) or {}), **point, "at": now(), "rebuilt": True}
+            old = known.get(key)
+            if not has_figures(old):
+                known[key] = {**(old or {}), **point, "at": now(), "rebuilt": True}
+            elif not has_states(old):
+                # Logged before 2.1: its own figures kept, the files by state added (rebuilt).
+                for kind, figs in point.items():
+                    mine = old.get(kind)
+                    if isinstance(mine, dict) and "states" not in mine:
+                        mine["states"] = figs.get("states")
+                        for d, x in (figs.get("departments") or {}).items():
+                            if isinstance((mine.get("departments") or {}).get(d), dict):
+                                mine["departments"][d].setdefault("states", x.get("states"))
         data["days"] = dict(sorted(known.items()))
         box["data"], box["action"] = data, "to_write"
     return len(out)

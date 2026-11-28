@@ -32,6 +32,14 @@ def main() -> None:
     done = dict(job, stage="finished")
     assert [m["frame"] for m in live._per_machine(cache, done)] == [None, None]
     assert live._per_machine(cache, {"job_id": "j2", "stage": "queued"}) == []
+    # The Farm tab's jobs in the order the farm takes them: priority, then the oldest; pending after.
+    rows = [
+        {"id": "a", "priority": 10, "at": "2026-11-27T10:00:00", "pending": False},
+        {"id": "b", "priority": 20, "at": "2026-11-27T12:00:00", "pending": False},
+        {"id": "c", "priority": 10, "at": "2026-11-27T09:00:00", "pending": False},
+        {"id": "d", "priority": 50, "at": "2026-11-27T08:00:00", "pending": True},
+    ]
+    assert [r["id"] for r in sorted(rows, key=live._queue_order)] == ["b", "c", "a", "d"]
     print("live job pace: ok")
 
 

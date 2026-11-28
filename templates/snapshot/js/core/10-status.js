@@ -10,8 +10,17 @@ const BASE = {
 };
 /* rdot: its own render after its latest session (1, a dot) or before (0, the dot faint), to check ('chk', the dot green); none: never rendered. */
 function glyph(base, corner, cnt, note, rdot) {
-  if (base === 'na')
+  if (base === 'na' && !corner && !note)
     return `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 12h8" style="stroke:var(--line-3)" stroke-width="2" stroke-linecap="round"/></svg>`;
+  // Not required, a retake or a note on it all the same: the dash, its badges beside it (counted nowhere).
+  if (base === 'na')
+    return glyphBadges(
+      `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M5 12h7" style="stroke:var(--line-3)" stroke-width="2" stroke-linecap="round"/>`,
+      corner,
+      cnt,
+      note,
+      null
+    );
   const [c, inner] = BASE[base];
   // The diamond cut out where its badges sit (a mask, page.html's gm-*): a real gap whatever the ground
   // under it -- a stroke of the area's colour showed as a dark ring on a row selected or a grey box.
@@ -25,6 +34,10 @@ function glyph(base, corner, cnt, note, rdot) {
   if (inner === 'check')
     s += `<path d="M7 12.2 9.1 14.3 13.2 10.2" fill="none" style="stroke:var(--on-st)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>`;
   s += '</g>';
+  return glyphBadges(s, corner, cnt, note, rdot);
+}
+/* Its badges over a glyph drawn so far (s, its <svg> open): the corner, the render's dot, the note. */
+function glyphBadges(s, corner, cnt, note, rdot) {
   if (corner) {
     const cc = {
       rtk: '--st-rtk',
@@ -63,8 +76,32 @@ const stOf = (it, d) => {
 const required = it => (it.req ? Object.keys(it.req).filter(d => it.req[d]) : Object.keys(it.states));
 const rtkNotes = (it, d) =>
   it.notes.filter(n => n.type === 'rtk' && !n.done && (d == null ? true : n.deps.includes(d)));
+/* A department of its kind not required on this file: notes and retakes allowed, greyed in the pickers. */
+const naDep = (it, d) => !required(it).includes(d);
 function info(it, d) {
-  if (!required(it).includes(d)) return { base: 'na', l: T('Not required'), s: '', tone: '' };
+  if (!required(it).includes(d)) {
+    // Not required: out of the figures, its notes and retakes said all the same (a retake for the edit...).
+    const rn = rtkNotes(it, d).length,
+      you = it.mine[d] === 'rtk' || it.myNotes.some(n => n.type === 'rtk' && n.dept === d),
+      nn =
+        it.notes.filter(n => n.type !== 'rtk' && !n.done && n.deps.includes(d)).length +
+        it.myNotes.filter(n => n.type !== 'rtk' && n.dept === d).length;
+    return {
+      base: 'na',
+      corner: rn ? 'rtk' : you ? 'you-rtk' : null,
+      cnt: rn,
+      note: nn > 0,
+      l: T('Not required'),
+      s: rn
+        ? T('{n} RTK · {who}', { n: rn, who: it.rtk[d] && it.rtk[d] !== 'team' ? it.rtk[d] : T('team') })
+        : you
+          ? T('you: retake')
+          : nn
+            ? T('{n} note|{n} notes', { n: nn })
+            : '',
+      tone: rn ? 'rtk' : you ? 'you' : ''
+    };
+  }
   const st = stOf(it, d),
     ok = it.ok[d],
     mine = it.mine[d],
@@ -126,13 +163,21 @@ function info(it, d) {
   const rf = (it.rf || {})[d],
     chk = (it.rc || []).includes(d),
     r = chk ? 'chk' : rf ? rf[0] : null,
-    rt = [chk ? T('render to check') : '', rf ? T(rf[0] ? 'render up to date ({date})' : 'render older than its last session ({date})', { date: fmtD(rf[1]) }) : '']
+    rt = [
+      chk ? T('render to check') : '',
+      rf
+        ? T(rf[0] ? 'render up to date ({date})' : 'render older than its last session ({date})', {
+            date: fmtD(rf[1])
+          })
+        : ''
+    ]
       .filter(Boolean)
       .join(' · ');
   return { base, corner, cnt, l, s, tone, note: nn > 0, r, rt };
 }
 /* A department's tooltip: its state, what's on top, its render. */
-const cellTitle = (d, x) => `${LBL[d]}: ${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}${x.rt ? ' · ' + esc(x.rt) : ''}`;
+const cellTitle = (d, x) =>
+  `${LBL[d]}: ${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}${x.rt ? ' · ' + esc(x.rt) : ''}`;
 const cellHTML = (it, d) => {
   const x = info(it, d);
   return `<span class="cell ${x.base === 'na' ? 'na' : ''}" title="${cellTitle(d, x)}">${glyph(x.base, x.corner, x.cnt, x.note, x.r)}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${esc(x.l)}</span>${x.s ? `<span class="s ${x.tone}">${esc(x.s)}</span>` : ''}</span></span>`;
@@ -141,7 +186,11 @@ const openRtk = it => rtkNotes(it).length + it.myNotes.filter(n => n.type === 'r
 // A validation's own line is a record, not a note: never counted.
 const openNotes = it => it.notes.filter(n => !n.done && !n.approval).length + it.myNotes.length;
 const omitted = it => (it.setAside !== undefined ? it.setAside : it.omit)?.state;
+/* Project settings › Validation: off, nothing of validation shown (roles, Validate, To validate,
+   Validated) -- a page of before, on. */
+const VAL = () => M.val_on !== false;
 const toValidate = it =>
+  VAL() &&
   !omitted(it) &&
   required(it).some(d => ['done', 'rework'].includes(it.states[d]) && !it.ok[d] && !it.rtk[d] && !it.mine[d]);
 const touched = it =>

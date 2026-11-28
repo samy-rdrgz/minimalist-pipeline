@@ -138,8 +138,9 @@ def main() -> None:
         assert v1_made["departments_done"] == {"layout": True}, v1_made  # a stable a 1.x made
         written = legacy.stable_written({"departments_done": {"layout": False}})
         assert written["departments_validated"] == {"layout": False}, written
-        assert migration.migration_done({"data_migrations": {"2.0": {}}})
+        assert migration.migration_done({"data_migrations": {"2.1": {}}})
         assert not migration.migration_done({"data_migrations": {"1.2": {}}})  # a 2.0 build's earlier run: offered again
+        assert not migration.migration_done({"data_migrations": {"2.0": {}}})  # 2.1: the files by state rebuilt
     print("OK: migration")
 
 

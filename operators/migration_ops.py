@@ -124,7 +124,7 @@ class M_PIPELINE_OT_migrate_data(bpy.types.Operator):
             popup("Migrate old data failed", f"{error}\n\nSee the pipeline log.", "ERROR")
 
         v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
-        run_in_background(plan_migration, (root, v_prefix), read, failed)
+        run_in_background(plan_migration, (root, v_prefix), read, failed, task=("migration", root.name))
         return {"FINISHED"}
 
 

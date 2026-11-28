@@ -2,10 +2,131 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Added
+
+- **A project without validation**: Project settings › *Validation*
+  ("validation": false in project_config.json, its roles kept for when it's
+  ticked again). Unticked, nobody validates -- a done department is
+  finished --, and the live page and the snapshots show no role, no
+  Validate, no To validate (filters, To do, a review's path), no Validated
+  (bars, figures, the curve, the legend); a review is the team's. In
+  Blender, Preferences' User role greyed for that project.
+
+- Live page, Breakdown › Over time › **Files by state**: how many files to
+  do, in progress, done and validated, day after day, stacked -- the
+  rectangle of every file filling up, its layers smoothed (each count
+  averaged over the days around it: the trend, not each day's ups and
+  downs); the exact counts on hover and at its end; the schedule dotted
+  (the files it expects finished). In place of the Done /
+  Validated curve (Projection keeps it). The progress log notes each day's
+  files by state ("states", by department too); **Migrate old data**
+  (offered again: migration "2.1") rebuilds them for the days before.
+- Live page, Breakdown › **Pace per week**: a column a week -- the files
+  finished, the files that received a retake (each once, however many
+  retakes or words), the pace the schedule needs from now dotted.
+- Notes, retakes and to-dos on **any department** of a file's kind, even
+  one not required on it: offered greyed in the pickers (the note's, its
+  edit, the phone's; Watch large, a line under the required ones), counted
+  in no figure, and said in the list: the dash of a department not required
+  wears its retake's badge, its note's bubble.
+
+### Changed
+
+- Live page, Breakdown: the shots' and the assets' tables, their names'
+  column one width -- their first department at the same place; the
+  schedule tile's "Shots done" on one line (on two, it hid its bar).
+- Live page, Breakdown: the tables and the figures on top compact -- a thin
+  bar a cell, the rows close, the tiles on one row: every sequence at a
+  glance.
+- Live page, the list: the rows' stripes start with the darker one (a
+  sequence's header and its departments' line are the light ones: a
+  sequence of one shot was one light block), and a band of the screen's
+  ground between the sequences' blocks.
+- Live page, Farm: a job of one shot of a block says it in its file's name
+  -- that shot's number strong, the block's others faint
+  (sq040_sh030-**040**-045_v001); the whole block as is. The phone too.
+- Live page, Farm: the machines on top, then a block per state (in progress,
+  waiting, failed, finished) folded as the sequences' are; a job on one
+  line -- its name, its shot and step after it, its bar beside its frames.
+- Live page, Breakdown: Over time and Projection one chart -- *Until today*
+  or *Projection* (the same days, then the cone), its shots / assets and its
+  department for both; the schedule's even pace dotted over the days too
+  (above it, ahead; under it, behind).
+- Live page, Watch large in full screen: its header hidden at first (its
+  tab shows it).
+- A shot or asset created from the page: its description as typed, none
+  if none -- no "(asked by …)" added any more.
+- Blender, the project panel: the work under way in the background (Clean
+  old renders, looking then cleaning; Migrate old data; rushes pushed;
+  Update links) said at its top, a ring turning and its seconds, until it
+  ends. The live page's footer says them too.
+
+### Fixed
+
+- A file's description emptied in a review (the page): cleared at the
+  import -- an empty one was taken for no change.
+
+- Live page, a file's renders to watch (the version picker, A/B): in the
+  order of its render history, newest first -- no longer by the render
+  folders' own times, which put render folders copied or pasted (a project
+  copied, renders moved) in the order they were written. A folder the
+  history doesn't know (rendered before it, or by hand) is placed by its
+  name, after the render it follows.
+- The phone's page, Menu: *Choose the videos folder…* (a snapshot opened
+  without its videos: the toast pointed to the Menu, which didn't have it;
+  on a phone, the folder or the videos themselves), *Load a review…*, and
+  the language.
+- The phone's page, Choose the videos…: the snapshot's videos **zip** (Export
+  snapshot › Videos: Zip, one file to bring to the phone) read for its
+  videos, played straight from it (zip64 too); or its .mp4 files, from the
+  phone's file browser (no longer its gallery, which renames them). A page
+  exported with Videos: Folder found them on a computer (its ../videos
+  beside it) but not on a phone, whose browser reads no file beside a page.
+- The phone's page: *Watch large*, the video on the whole screen (turned
+  sideways where the phone allows), its own player's controls.
+- Live page, Farm: the waiting jobs in the order the farm takes them
+  (priority, then the oldest; not accepted yet after).
+- Live page: a Blender on File › New (or on a file outside the project) no
+  longer shown on the file it had open -- its session closed at once.
+- Live page, Shots / Assets with none yet: the tab opens (it did nothing),
+  *No shot yet.* and *New shot…* / *New asset…*; planned files in a new
+  sequence (prefix) listed in their own group; starting a review from Assets
+  stays there.
+- Blender, Render (the list's, a file to pick): the departments of the kind
+  picked -- Shot or Preview the shots', Asset / Library the assets' -- no
+  longer both mixed; switching kind drops a department of the other.
+- Blender, Working on: a department waiting or to redo says it by its icon
+  alone, why in its tooltip -- the reason made the button too wide.
+- Live page, the list's Renders column: *rendering…* opens its job in Farm
+  (the job's id never reached the page).
+- Live page, Render: *Increment* -- off, this version's last render folder
+  rendered again (Blender's Render dialog had it, not the page).
+- Live page, Watch large: the version line keeps one height whether the file
+  has one version or several (A / B): the timeline no longer moves from one
+  shot to the next.
+- Live page, a file's detail › Last renders: the last render of each shot
+  and department only -- it listed every render folder (the older ones are
+  in the player's version menu). Its ▶ on a block's shot plays that shot's
+  render (it could play another version, counted among all the shots').
+- The detail panel with no file selected: no empty tab strip beside *Pick a
+  file in the list*.
+- The phone's page, a review: a note's replies shown under it, and
+  *Reply* to one (taken back with its arrow) -- only the desktop page had
+  them.
+
 ## 2.0.0
 
 ### Added
 
+- **Live page, a picture in the background**: the selected file's
+  thumbnail (the Farm: the selected job's file) fills the screen, blurred,
+  its colours kept but pastel and its light evened out (a dark theme's
+  lightness, a light one's) so what lies over it stays readable. The main
+  areas stay opaque; the gaps between them, the top bar, and the secondary
+  bars (the status bar, Watch large's header) let it through, as glass.
+  Menu > Picture in the background turns it off (this browser).
 - **A version's note**: Increment (and Increment as stable) has an optional
   *What changed* line -- "fixed the arm", "cam rescaled" -- kept in the
   version's `.wipmeta` / `.stablemeta` (`note`), written in the log, shown
@@ -29,6 +150,19 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, a new asset: Add to my review did nothing (an asset has no
+  shots: the page stopped there). Fixed.
+- Live page, New shot / New asset: its sequence (a number: a new one makes
+  a new sequence, its first shot 010) or its prefix (the project's) changed
+  in the dialog; Menu > New shot… / New asset… open it from anywhere.
+- Background picture: a little lighter; the workspace tabs' bar and the
+  review's bar glass too; the header's right end on the areas' edge.
+- Live page, Watch large: Next plays a block's sub-shots one after the
+  other, then the next shot of the list as filtered (To check, a search...),
+  across sequences -- it played a block's first sub-shot only, stopped at the
+  sequence's end, and ignored the filters; ← → go through that list too.
+  Play the sequence still stops at its own end. Another shot, or another
+  sub-shot, starts at its very first frame.
 - Live page, background work in the footer: Update links and pushes of the
   rushes said while under way (a spinner, how many), then done or failed
   (✓ / ✕, a toast once, every one with its words in the tooltip) -- a relink

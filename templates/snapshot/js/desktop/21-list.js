@@ -19,7 +19,7 @@ function renderQuick() {
   q.push(
     ['rtk', T('Retakes'), pool.filter(i => openRtk(i)).length, glyph('done', 'rtk', 1)],
     ['notes', T('Notes'), pool.filter(i => openNotes(i)).length, ic('i-note')],
-    ['val', T('To validate'), pool.filter(toValidate).length, glyph('done')]
+    ...(VAL() ? [['val', T('To validate'), pool.filter(toValidate).length, glyph('done')]] : [])
   );
   const nm = S.more.size + (S.dept ? 1 : 0);
   // On a narrow screen the filters fold behind one button (the active ones counted on it).
@@ -31,10 +31,14 @@ function renderQuick() {
           ['prog', T('Progress')],
           ['render', T('Renders')]
         ]
-          .map(([k, l]) => `<button class="btn" data-sview="${k}" aria-pressed="${S.sview === k}">${l}</button>`)
+          .map(
+            ([k, l]) => `<button class="btn" data-sview="${k}" aria-pressed="${S.sview === k}">${l}</button>`
+          )
           .join('')}</span><span class="slg">${sParts()
           .map(([k, c, l]) => `<span><i style="background:${c}"></i>${T(l)}</span>`)
-          .join('')}<span><i class="todo"></i>${T(S.sview === 'render' ? 'Not rendered' : 'To do')}</span></span><span class="sp"></span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button><button class="btn tool" data-export title="${T('Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)')}">${ic('b-export')}${T('Export…')}</button>`
+          .join(
+            ''
+          )}<span><i class="todo"></i>${T(S.sview === 'render' ? 'Not rendered' : 'To do')}</span></span><span class="sp"></span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button><button class="btn tool" data-export title="${T('Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)')}">${ic('b-export')}${T('Export…')}</button>`
       : `<button class="btn qfold only-phone" data-qfold aria-expanded="${S.qFold === false}">${ic('b-filter')}${T('Filters')}${on ? ` <span class="n">${on}</span>` : ''}${ic(S.qFold === false ? 'b-downarrow_hlt' : 'b-rightarrow')}</button><span class="join">${q.map(([k, l, n, g]) => `<button class="btn" data-quick="${k}" aria-pressed="${S.quick === k}">${g.replace('class="g"', 'class="g" style="width:18px;height:18px"')}<span>${l}</span><span class="n">${n}</span></button>`).join('')}</span>
     <span class="anchor"><button class="btn ${nm ? '' : 'tool'}" data-menu="m-more" aria-haspopup="true" aria-expanded="false" ${nm ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${T('Filters')}${nm ? ` <span class="n">${nm}</span>` : ''}${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-more" hidden role="menu">
@@ -81,15 +85,27 @@ function renderList() {
   L.classList.toggle('nothumb', S.hideCols.has('thumb'));
   L.classList.toggle('noprog', S.hideCols.has('prog'));
   L.classList.toggle('farmcol', farmCol());
-  const vis = visible();
+  const vis = visible(),
+    groups = [...new Set(vis.map(groupOf))],
+    // Planned in a sequence (a prefix) with nothing shown yet: their own group.
+    orphans = [...new Set(S.planned.filter(p => p.kind === S.ws && !groups.includes(p.g)).map(p => p.g))];
+  const newBtn = `<button class="btn tool" data-newplan="${S.ws}">${ic('b-add')}${S.ws === 'shot' ? T('New shot…') : T('New asset…')}</button>`;
+  const orphanHTML = orphans
+    .map(
+      g => `<div class="grp" data-g="${g}"><div class="grp-h"><span class="ttl"><b>${g}</b></span></div>
+      <div class="rows">${S.planned.map((p, n) => (p.g === g && p.kind === S.ws ? plannedRow(p, n) : '')).join('')}</div></div>`
+    )
+    .join('');
   if (!vis.length) {
+    const none = !items.some(i => i.kind === S.ws);
     L.innerHTML =
-      `<div class="empty">${T('No file matches the filters.')}<button class="btn" data-act="clear">${T('Clear the filters')}</button></div>` +
+      orphanHTML +
+      `<div class="empty">${none ? (S.ws === 'shot' ? T('No shot yet.') : T('No asset yet.')) : T('No file matches the filters.')}${none ? '' : `<button class="btn" data-act="clear">${T('Clear the filters')}</button>`}${newBtn}</div>` +
       otherHTML();
     return;
   }
   L.innerHTML =
-    [...new Set(vis.map(groupOf))]
+    groups
       .map(g => {
         const all = vis.filter(i => groupOf(i) === g),
           act = all.filter(i => !omitted(i) && i.done != null),
@@ -102,7 +118,7 @@ function renderList() {
         return `<div class="grp ${S.closed.has(g) ? 'closed' : ''}" data-g="${g}">
       <div class="grp-h"><button class="ttl" data-fold="${g}" aria-expanded="${!S.closed.has(g)}">${ic('b-downarrow_hlt', 'i tri open')}${ic('b-rightarrow', 'i tri shut')}<b>${g}</b><span class="cnt">${S.ws === 'shot' ? T('{n} shot|{n} shots', { n: its.length }) : T('{n} file|{n} files', { n: its.length })}</span></button>
         ${S.ws === 'shot' ? `<button class="btn sm play" data-seq="${g}" title="${T('The last videos of {seq}, one after the other', { seq: g })}">${ic('b-play')}${T('Play the sequence')}</button>` : ''}${S.review ? `<button class="btn sm tool" data-plan="${g}" data-k="${S.ws}" title="${S.ws === 'shot' ? T('A new shot in {seq}, made when the review is imported', { seq: g }) : T('A new file {prefix}_…, made when the review is imported', { prefix: g })}">${ic('b-add')}${S.ws === 'shot' ? T('shot') : T('asset')}</button>` : ''}
-        <span class="prog"><span class="bar" style="--p:${(ad || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(ad)}"><span class="bl">${T('Done')}</span><i></i><span>${pct(ad)}</span></span><span class="bar" style="--p:${(av || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(av)}"><span class="bl">${T('Validated')}</span><i></i><span>${pct(av)}</span></span></span></div>
+        <span class="prog"><span class="bar" style="--p:${(ad || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(ad)}"><span class="bl">${T('Done')}</span><i></i><span>${pct(ad)}</span></span>${VAL() ? `<span class="bar" style="--p:${(av || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(av)}"><span class="bl">${T('Validated')}</span><i></i><span>${pct(av)}</span></span>` : ''}</span></div>
       <div class="rows"><div class="cols"><span class="c-th"></span><span>${T('File')}</span>${dl.map(d => `<span class="cd" title="${LBL[d]}">${LBL[d]}</span>`).join('')}<span class="c-prog">${T('Progress')}</span>${farmCol() ? `<span class="c-fm">${T('Renders')}</span>` : ''}</div>
       ${its.map(rowHTML).join('')}${S.planned.map((p, n) => (p.g === g && p.kind === S.ws ? plannedRow(p, n) : '')).join('')}${
         hid.length && !filt
@@ -113,11 +129,19 @@ function renderList() {
           : ''
       }</div></div>`;
       })
-      .join('') + otherHTML();
+      .join('') +
+    orphanHTML +
+    (S.review ? `<div class="new-f">${newBtn}</div>` : '') +
+    otherHTML();
 }
 function plannedRow(p, n) {
   return `<div class="row planned"><span class="thumb"></span><span class="fname"><span class="n">${esc(p.name)}</span>${p.desc ? `<span class="d">${esc(p.desc)}</span>` : ''}<span class="m"><span class="tag you">${T('new · made at the import')}</span></span></span>
-  <span class="depts">${shownDepts(p.kind).map(d => `<span class="cell ${p.deps.includes(d) ? '' : 'na'}">${glyph(p.deps.includes(d) ? 'todo' : 'na')}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${p.deps.includes(d) ? T('To do') : ''}</span></span></span>`).join('')}</span>
+  <span class="depts">${shownDepts(p.kind)
+    .map(
+      d =>
+        `<span class="cell ${p.deps.includes(d) ? '' : 'na'}">${glyph(p.deps.includes(d) ? 'todo' : 'na')}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${p.deps.includes(d) ? T('To do') : ''}</span></span></span>`
+    )
+    .join('')}</span>
   <span class="bars"><button class="btn sm flat" data-unplan="${n}" title="${T('Take this new file out of the review')}">${ic('b-x')}${T('Remove')}</button></span></div>`;
 }
 function otherHTML() {
@@ -143,7 +167,8 @@ function rowHTML(it) {
     tags.push(
       `<span class="tag tochk" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}${T('to check')}</span>`
     );
-  if (it.outdated && !farmCol()) tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
+  if (it.outdated && !farmCol())
+    tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
   if (it.farm && !farmCol())
     tags.push(
       `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(TS(it.farm.tip)) })}">${ic(it.farm.state === 'waiting' ? 'b-time' : 'b-file_movie')}farm ${esc(TS(it.farm.text))}${it.farm.department ? ' · ' + esc(LBL[it.farm.department] || it.farm.department) : ''}</span>`
@@ -154,7 +179,7 @@ function rowHTML(it) {
     <span class="fname"><span class="n" title="${it.name}">${it.name}</span>${it.desc ? `<span class="d" title="${esc(it.desc)}">${esc(it.desc)}</span>` : ''}
       <span class="m"><span class="ver">${[it.wip, it.stable && 'stable ' + it.stable].filter(Boolean).join(' · ')}${it.shots && it.shots.length ? ' · ' + T('{n} shot|{n} shots', { n: it.shots.length }) : ''}</span>${tags.join('')}</span></span>
     <span class="depts">${dl.map(d => cellHTML(it, d)).join('')}</span>
-    <span class="bars"><span class="bar bare" style="--p:${(it.done || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(it.done)}"><i></i><span>${pct(it.done)}</span></span><span class="bar bare" style="--p:${(fv || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(fv)}"><i></i><span>${pct(fv)}</span></span></span>${farmCol() ? farmCell(it) : ''}
+    <span class="bars"><span class="bar bare" style="--p:${(it.done || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(it.done)}"><i></i><span>${pct(it.done)}</span></span>${VAL() ? `<span class="bar bare" style="--p:${(fv || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(fv)}"><i></i><span>${pct(fv)}</span></span>` : ''}</span>${farmCol() ? farmCell(it) : ''}
   </div>`;
 }
 /* The Farm column: a file's job -- its state, and while it
@@ -164,15 +189,20 @@ function farmCell(it) {
     out = [];
   if (f) {
     const m = String(f.text || '').match(/(\d+)\/(\d+)/),
-      p = m ? +m[1] / +m[2] : null;
+      p = m ? +m[1] / +m[2] : null,
+      go = LIVE && f.id; // a snapshot has no Farm tab to open it in
     out.push(
-      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" ${f.id ? `role="button" tabindex="0" data-gojob="${esc(f.id)}"` : ''} title="${esc(TS(f.tip || f.text))}${f.id ? ' · ' + T('a click: this job, in Farm') : ''}">${ic(f.state === 'waiting' ? 'b-time' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}${f.department ? ' · ' + esc(LBL[f.department] || f.department) : ''}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
+      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" ${go ? `role="button" tabindex="0" data-gojob="${esc(f.id)}"` : ''} title="${esc(TS(f.tip || f.text))}${go ? ' · ' + T('a click: this job, in Farm') : ''}">${ic(f.state === 'waiting' ? 'b-time' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}${f.department ? ' · ' + esc(LBL[f.department] || f.department) : ''}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
     );
   }
   if (it.toCheck)
-    out.push(`<span class="fj chk" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}<span class="w">${T('to check')}</span></span>`);
+    out.push(
+      `<span class="fj chk" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}<span class="w">${T('to check')}</span></span>`
+    );
   if (it.outdated)
-    out.push(`<span class="fj old" title="${T('rendered before the last stable')}">${ic('b-error')}<span class="w">${T('outdated')}</span></span>`);
+    out.push(
+      `<span class="fj old" title="${T('rendered before the last stable')}">${ic('b-error')}<span class="w">${T('outdated')}</span></span>`
+    );
   return `<span class="bars farmc">${out.join('') || '<span class="faint">–</span>'}</span>`;
 }
 /* A bar's figure sits on its colour from this share up. */
@@ -233,7 +263,7 @@ const RPARTS = [
   ['fresh', 'var(--text-2)', 'Up to date', '{n} up to date'],
   ['old', 'color-mix(in srgb, var(--text-2) 35%, transparent)', 'Outdated', '{n} outdated']
 ];
-const sParts = () => (S.sview === 'render' ? RPARTS : SPARTS);
+const sParts = () => (S.sview === 'render' ? RPARTS : SPARTS.filter(p => p[0] !== 'val' || VAL()));
 function renderOf(i, x) {
   if ((i.rc || []).includes(x)) return 'chk';
   const rf = (i.rf || {})[x];
@@ -262,7 +292,10 @@ function renderSynth() {
       return q[k] ? [`${col} ${a}% ${at}%`] : [];
     });
     const f = rv ? (q.chk + q.fresh) / c.np : c.done;
-    const tip = [...P.map(([k, , , t]) => q[k] && T(t, { n: q[k] })), q.todo && T(rv ? '{n} not rendered' : '{n} to do', { n: q.todo })]
+    const tip = [
+      ...P.map(([k, , , t]) => q[k] && T(t, { n: q[k] })),
+      q.todo && T(rv ? '{n} not rendered' : '{n} to do', { n: q.todo })
+    ]
       .filter(Boolean)
       .join(' · ');
     return `<span class="sf" style="--p:${at}%;--c:${stops.length ? `linear-gradient(90deg,${stops.join(',')})` : 'none'}" title="${T(rv ? 'Rendered up to date {pct}' : 'Done {pct}', { pct: pct(f) })} · ${tip}"><b class="v">${Math.round(f * 100)} %</b></span>`;
@@ -284,13 +317,13 @@ function renderSynth() {
   const bar = (p, c, l) =>
     `<span class="sf ${p >= IN ? 'in' : ''}" style="--p:${p * 100}%;--c:${c}"><span class="lab ${p >= 0.45 ? 'on' : ''}">${l}</span><b class="v">${pct(p)}</b></span>`;
   const kp = (t, p, v) =>
-    `<div class="kpi"><span class="t">${t}</span>${bar(p, 'var(--st-done)', T('Done'))}${bar(v, 'var(--st-val)', T('Validated'))}</div>`;
+    `<div class="kpi"><span class="t">${t}</span>${bar(p, 'var(--st-done)', T('Done'))}${VAL() ? bar(v, 'var(--st-val)', T('Validated')) : ''}</div>`;
   L.innerHTML = `<div class="kpis">${kp(T('Shots'), M.progress.shot, M.validation.shot)}${kp(T('Assets'), M.progress.asset, M.validation.asset)}
     <div class="kpi"><span class="t">${T('Open retakes')}</span><span class="big">${items.reduce((a, i) => a + openRtk(i), 0)}</span><span class="faint">${T('on {n} file|on {n} files', { n: items.filter(openRtk).length })}</span></div>
     ${M.schedule ? `<div class="kpi"><span class="t">${T('Schedule · day {d} / {total}', { d: M.schedule.elapsed_days, total: M.schedule.total_days })}</span><span class="sf sch ${M.progress.shot >= IN ? 'in' : ''}" style="--p:${M.progress.shot * 100}%;--c:var(--st-done);--e:${M.schedule.expected * 100}%" title="${T('The line: where the shots should be today')}"><span class="lab ${M.progress.shot >= 0.45 ? 'on' : ''}">${T('Shots done')}</span><b class="v">${pct(M.progress.shot)}</b><i class="mk2"></i></span><span class="faint">${T('expected {pct}', { pct: pct(M.schedule.expected) })} · ${M.progress.shot < M.schedule.expected ? '<span class="bad">' + T('{n} points behind', { n: Math.round((M.schedule.expected - M.progress.shot) * 100) }) + '</span>' : T('on time')}</span></div>` : ''}
     <div class="kpi"><span class="t">${T('Set aside')}</span><span class="big">${items.filter(omitted).length}</span><span class="faint">${T('on hold or cancelled, out of the figures')}</span></div></div>
-  ${S.weights ? `<p class="weights">${T("A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don't count. Validated is counted apart: by the role {role}, on the stable shown.", { wip: (M.weights || {}).wip ?? 33, rework: (M.weights || {}).rework ?? 67, rtk: (M.weights || {}).rtk ?? 67, role: esc(M.role) })} ${T("The bar: each department in one state -- validated, done, in retake (done with an open retake, one or ten), in progress (reworked too), to do (not started, a retake on it or not).")}</p>` : ''}
-  ${table('shot', T('Shots'))}${table('asset', T('Assets'))}${overTime()}${projection()}${activity()}`;
+  ${S.weights ? `<p class="weights">${T("A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don't count. Validated is counted apart: by the role {role}, on the stable shown.", { wip: (M.weights || {}).wip ?? 33, rework: (M.weights || {}).rework ?? 67, rtk: (M.weights || {}).rtk ?? 67, role: esc(M.role) })} ${T('The bar: each department in one state -- validated, done, in retake (done with an open retake, one or ten), in progress (reworked too), to do (not started, a retake on it or not).')}</p>` : ''}
+  ${table('shot', T('Shots'))}${table('asset', T('Assets'))}${overTime()}${paceChart()}${activity()}`;
 }
 /* Over time: one point a day (lib/monitoring/progress_log.py), Done and Validated of the shots
    or the assets, all or one department; today's from the page's own figures when not logged yet. */
@@ -301,64 +334,303 @@ function otPoints() {
     .map(([day, p]) => {
       const k = (p || {})[key] || {},
         x = o.dept ? (k.departments || {})[o.dept] || {} : k;
-      return { day, done: x.done ?? null, val: x.validated ?? null };
+      return { day, done: x.done ?? null, val: VAL() ? (x.validated ?? null) : null };
     })
     .filter(p => p.done != null || p.val != null);
   const today = new Date().toISOString().slice(0, 10);
   if (!o.dept && !pts.some(p => p.day === today) && M.progress[o.kind] != null)
-    pts.push({ day: today, done: M.progress[o.kind], val: M.validation[o.kind] ?? null, now: true });
+    pts.push({
+      day: today,
+      done: M.progress[o.kind],
+      val: VAL() ? (M.validation[o.kind] ?? null) : null,
+      now: true
+    });
   return pts.sort((a, b) => (a.day < b.day ? -1 : 1));
 }
+/* Over time: Files by state (statesChart()), or the projection (21-projection.js), under one header. */
 function overTime() {
+  const o = S.ot;
+  const deps = DEPTS[o.kind] || [];
+  const head = `<div class="ot-h"><b>${T('Over time')}</b><span class="join">${[
+    ['', T('Files by state')],
+    ['ahead', T('Projection')]
+  ]
+    .map(
+      ([k, l]) =>
+        `<button class="btn sm" data-otv="${k}" aria-pressed="${(o.view || '') === k}">${l}</button>`
+    )
+    .join(
+      ''
+    )}</span><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
+    <span class="anchor"><button class="enum" data-menu="m-otd" aria-haspopup="true" aria-expanded="false"><span class="lb">${o.dept ? esc(LBL[o.dept]) : T('All departments')}</span>${ic('b-downarrow_hlt')}</button><div class="menu" id="m-otd" hidden role="menu">${['', ...deps].map(d => `<button class="mi" data-otd="${esc(d)}"><span class="ck">${d === o.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(LBL[d]) : T('All departments')}</span></button>`).join('')}</div></span>
+    <button class="btn flat icon live-only" data-otreload aria-label="${T('Read the project again')}" title="${T("Read the project again: today's point brought up to date")}">${ic('b-file_refresh')}</button>
+    <span class="ot-lg">${
+      o.view === 'ahead'
+        ? `<i style="--c:var(--st-done)"></i>${T('Done')}${VAL() ? `<i style="--c:var(--st-val)"></i>${T('Validated')}` : ''}`
+        : ST_LAYERS()
+            .map(([, c, l]) => `<i style="--c:${c}"></i>${l()}`)
+            .join('')
+    }${M.schedule ? `<i class="pj-sch"></i>${T('Schedule')}` : ''}</span></div>`;
+  // Projection: the same days, then where their pace leads (21-projection.js), on the same header.
+  if (o.view === 'ahead') return projection(head);
+  return statesChart(head);
+}
+/* Files by state: the layers, bottom up -- validated, done, in progress, to do (the rectangle filling up). */
+const ST_LAYERS = () =>
+  [
+    ['val', 'var(--st-val)', () => T('Validated')],
+    ['done', 'var(--st-done)', () => T('Done')],
+    ['wip', 'var(--st-wip)', () => T('In progress')],
+    ['todo', 'color-mix(in srgb, var(--st-todo) 30%, transparent)', () => T('To do')]
+  ].filter(([k]) => k !== 'val' || VAL());
+/* A department's state as the log counts it (progress_log.py _dept_state()); a file's (_file_state()). */
+const stDep = (it, d) =>
+  VAL() && it.ok[d] && !it.ok[d].old
+    ? 'val'
+    : isDone(it.states[d])
+      ? 'done'
+      : (it.states[d] || 'todo') === 'todo'
+        ? 'todo'
+        : 'wip';
+function stFile(it) {
+  const s = required(it).map(d => stDep(it, d));
+  if (!s.length) return 'todo';
+  if (s.every(x => x === 'val')) return 'val';
+  if (s.every(x => x === 'val' || x === 'done')) return 'done';
+  return s.every(x => x === 'todo') ? 'todo' : 'wip';
+}
+/* Today's counts, from the page's own files: {todo, wip, done, val}. */
+function stNow(kind, dept) {
+  const out = { todo: 0, wip: 0, done: 0, val: 0 };
+  items
+    .filter(i => i.kind === kind && !omitted(i) && (!dept || required(i).includes(dept)))
+    .forEach(i => out[dept ? stDep(i, dept) : stFile(i)]++);
+  return out;
+}
+/* A layer's edge through its points (x, y), its first one already reached: a monotone curve (never past
+   its points, no bump made up), the same whichever way it's gone along. */
+function stLine(xs, ys) {
+  const n = xs.length,
+    f = v => v.toFixed(1);
+  if (n < 3)
+    return xs
+      .slice(1)
+      .map((x, i) => ` L${f(x)} ${f(ys[i + 1])}`)
+      .join('');
+  // Fritsch-Carlson: each point's tangent from its neighbours' slopes, flattened where they disagree.
+  const d = xs.slice(1).map((x, i) => (ys[i + 1] - ys[i]) / (x - xs[i] || 1)),
+    m = xs.map((_, i) =>
+      i === 0 ? d[0] : i === n - 1 ? d[n - 2] : d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2
+    );
+  for (let i = 0; i < n - 1; i++) {
+    if (d[i] === 0) {
+      m[i] = m[i + 1] = 0;
+      continue;
+    }
+    const a = m[i] / d[i],
+      b = m[i + 1] / d[i],
+      h = a * a + b * b;
+    if (h > 9) {
+      const t = 3 / Math.sqrt(h);
+      m[i] = t * a * d[i];
+      m[i + 1] = t * b * d[i];
+    }
+  }
+  return xs
+    .slice(1)
+    .map((x, i) => {
+      const h = (x - xs[i]) / 3;
+      return ` C${f(xs[i] + h)} ${f(ys[i] + m[i] * h)} ${f(x - h)} ${f(ys[i + 1] - m[i + 1] * h)} ${f(x)} ${f(ys[i + 1])}`;
+    })
+    .join('');
+}
+/* Breakdown › Over time › Files by state: how many files in each state, day after day (progress_log.py
+   "states"), stacked -- the rectangle of every file filling up; the schedule's even pace dotted (the files
+   it expects finished). The days logged before 2.1: rebuilt by Migrate old data. */
+function statesChart(head) {
   const o = S.ot,
-    pts = otPoints(),
+    key = o.kind === 'shot' ? 'shots' : 'assets',
+    today = new Date().toISOString().slice(0, 10);
+  const pts = Object.entries(M.history || {})
+    .map(([day, p]) => {
+      const k = (p || {})[key] || {},
+        s = o.dept ? ((k.departments || {})[o.dept] || {}).states : k.states;
+      return s ? { day, s } : null;
+    })
+    .filter(Boolean)
+    .filter(p => p.day !== today);
+  pts.push({ day: today, s: stNow(o.kind, o.dept), now: true });
+  pts.sort((a, b) => (a.day < b.day ? -1 : 1));
+  if (pts.length < 2)
+    return `<div class="ot">${head}<p class="faint ot-empty">${T('Files by state, a point a day from today on. The days before: Migrate old data (Blender, the project panel) rebuilds them.')}</p></div>`;
+  // Drawn: each state's count averaged over the days around (a fortnight on a short production, more on a
+  // long one) -- the trend, not each day's ups and downs; the exact counts on hover and at the end.
+  const span = (Date.parse(pts[pts.length - 1].day) - Date.parse(pts[0].day)) / 864e5,
+    half = Math.max(3, Math.round(span / 20)) * 864e5,
+    ts = pts.map(p => Date.parse(p.day));
+  const draw = pts.map((p, i) => {
+    const near = pts.filter((_, j) => Math.abs(ts[j] - ts[i]) <= half),
+      s = {};
+    ['todo', 'wip', 'done', 'val'].forEach(
+      k => (s[k] = near.reduce((a, q) => a + (q.s[k] || 0), 0) / near.length)
+    );
+    return { day: p.day, s };
+  });
+  const L = ST_LAYERS(),
+    tot = p => L.reduce((a, [k]) => a + (p.s[k] || 0) + (k === 'done' && !VAL() ? p.s.val || 0 : 0), 0),
+    top = Math.max(1, ...pts.map(tot)),
     W = 720,
     H = 200,
     pl = 40,
-    pr = 92,
+    pr = 112,
     pt = 12,
-    pb = 26;
-  const deps = DEPTS[o.kind] || [];
-  const head = `<div class="ot-h"><b>${T('Over time')}</b><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
-    <span class="anchor"><button class="enum" data-menu="m-otd" aria-haspopup="true" aria-expanded="false"><span class="lb">${o.dept ? esc(LBL[o.dept]) : T('All departments')}</span>${ic('b-downarrow_hlt')}</button><div class="menu" id="m-otd" hidden role="menu">${['', ...deps].map(d => `<button class="mi" data-otd="${esc(d)}"><span class="ck">${d === o.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(LBL[d]) : T('All departments')}</span></button>`).join('')}</div></span>
-    <button class="btn flat icon live-only" data-otreload aria-label="${T('Read the project again')}" title="${T("Read the project again: today's point brought up to date")}">${ic('b-file_refresh')}</button>
-    <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Done')}<i style="--c:var(--st-val)"></i>${T('Validated')}</span></div>`;
-  if (pts.length < 2)
-    return `<div class="ot">${head}<p class="faint ot-empty">${T('One point a day, from the snapshots and the live page: the curve starts with the second day.')}</p></div>`;
-  const t0 = Date.parse(pts[0].day),
-    t1 = Date.parse(pts[pts.length - 1].day),
+    pb = 26,
+    t0 = Date.parse(pts[0].day),
+    t1 = Date.parse(draw[draw.length - 1].day),
     X = d => pl + ((Date.parse(d) - t0) / (t1 - t0 || 1)) * (W - pl - pr),
-    Y = v => pt + (1 - v) * (H - pt - pb);
-  const line = k =>
-    pts
-      .filter(p => p[k] != null)
-      .map((p, i) => (i ? 'L' : 'M') + X(p.day).toFixed(1) + ' ' + Y(p[k]).toFixed(1))
-      .join(' ');
-  const last = k => [...pts].reverse().find(p => p[k] != null);
+    Y = v => pt + (1 - v / top) * (H - pt - pb);
+  const val = (p, k) => (p.s[k] || 0) + (k === 'done' && !VAL() ? p.s.val || 0 : 0);
+  let base = draw.map(() => 0),
+    paths = '',
+    labs = [];
+  L.forEach(([k, c, l]) => {
+    const up = draw.map((p, i) => base[i] + val(p, k));
+    const xs = draw.map(p => X(p.day)),
+      rx = [...xs].reverse();
+    paths += `<path d="M${xs[0].toFixed(1)} ${Y(up[0]).toFixed(1)}${stLine(xs, up.map(Y))} L${rx[0].toFixed(1)} ${Y(base[base.length - 1]).toFixed(1)}${stLine(rx, [...base].reverse().map(Y))} Z" style="fill:${c}"/>`;
+    const n = draw.length - 1,
+      v = val(pts[n], k); // its exact count today
+    if (v) labs.push({ y: Y((up[n] + base[n]) / 2), t: `${l()} ${v}` });
+    base = up;
+  });
+  // The end labels never on each other: pushed down from the top one, a line apart at least.
+  labs
+    .sort((a, b) => a.y - b.y)
+    .forEach((x, i, a) => {
+      if (i && x.y - a[i - 1].y < 13) x.y = a[i - 1].y + 13;
+    });
   const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString(DTL(), { day: 'numeric', month: 'short' });
   const ticks = [0, Math.floor((pts.length - 1) / 2), pts.length - 1].filter((v, i, a) => a.indexOf(v) === i);
-  // The two end labels never on each other: pushed apart when closer than a line.
-  const ld = last('done'),
-    lv = last('val');
-  let yd = ld ? Y(ld.done) : 0,
-    yv = lv ? Y(lv.val) : 0;
-  if (ld && lv && Math.abs(yd - yv) < 14) {
-    const m = (yd + yv) / 2,
-      up = yd <= yv ? -7 : 7;
-    yd = m + up;
-    yv = m - up;
+  // The schedule: the files it expects finished (done or validated) each day, of the files there now.
+  let sch = '';
+  if (M.schedule) {
+    const s0 = Date.parse(M.schedule.start),
+      s1 = Date.parse(M.schedule.end),
+      a = Math.max(t0, s0),
+      b = Math.min(t1, s1),
+      at = t => Math.min(1, Math.max(0, (t - s0) / (s1 - s0 || 1))) * tot(pts[pts.length - 1]);
+    const iso = t => new Date(t).toISOString().slice(0, 10);
+    if (b > a)
+      sch = `<path class="pj-even" d="M${X(iso(a)).toFixed(1)} ${Y(at(a)).toFixed(1)} L${X(iso(b)).toFixed(1)} ${Y(at(b)).toFixed(1)}"/>`;
   }
-  const svg = `<svg class="ot-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${T('Over time')}">
-    ${[0, 0.5, 1].map(v => `<line class="ot-grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ot-ax" x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${v * 100} %</text>`).join('')}
+  const svg = `<svg class="ot-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${T('Files by state')}">
+    ${[0, Math.round(top / 2), top].map(v => `<line class="ot-grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ot-ax" x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`).join('')}
     ${ticks.map(i => `<text class="ot-ax" x="${X(pts[i].day)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'}">${fmt(pts[i].day)}</text>`).join('')}
-    <path class="ot-l" style="--c:var(--st-val)" d="${line('val')}"/><path class="ot-l" style="--c:var(--st-done)" d="${line('done')}"/>
-    ${ld ? `<circle class="ot-end" style="--c:var(--st-done)" cx="${X(ld.day)}" cy="${Y(ld.done)}" r="4"/><text class="ot-lab" x="${X(ld.day) + 10}" y="${yd + 4}">${T('Done')} ${pct(ld.done)}</text>` : ''}
-    ${lv ? `<circle class="ot-end" style="--c:var(--st-val)" cx="${X(lv.day)}" cy="${Y(lv.val)}" r="4"/><text class="ot-lab" x="${X(lv.day) + 10}" y="${yv + 4}">${T('Validated')} ${pct(lv.val)}</text>` : ''}
-    <g class="ot-hv" hidden><line class="ot-x" y1="${pt}" y2="${H - pb}"/><circle class="ot-d" style="--c:var(--st-done)" r="4"/><circle class="ot-v" style="--c:var(--st-val)" r="4"/></g>
+    ${paths}${sch}
+    ${labs.map(x => `<text class="ot-lab" x="${W - pr + 8}" y="${x.y + 4}">${esc(x.t)}</text>`).join('')}
+    <g class="ot-hv" hidden><line class="ot-x" y1="${pt}" y2="${H - pb}"/><circle class="ot-d" r="0"/><circle class="ot-v" r="0"/></g>
     <rect class="ot-hit" x="${pl}" y="0" width="${W - pl - pr}" height="${H}" fill="transparent"/></svg>`;
   OT.pts = pts;
+  OT.mode = 'st';
   OT.geo = { X, Y, W, pl, pr };
   return `<div class="ot">${head}<div class="ot-box">${svg}<div class="ot-tip" hidden></div></div></div>`;
+}
+/* Breakdown › Pace: a week a column -- the files finished that week (files by state: done or validated,
+   its gain over the week before) and the files that received a retake (each once, however many its
+   retakes or their words); the pace the schedule needs from now, dotted. Shots or assets, a department:
+   Over time's. The last 16 weeks. */
+function paceChart() {
+  const o = S.ot,
+    key = o.kind === 'shot' ? 'shots' : 'assets',
+    today = new Date().toISOString().slice(0, 10);
+  const monday = d => {
+    const t = new Date(d + 'T12:00:00');
+    t.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+    return t.toISOString().slice(0, 10);
+  };
+  // Finished each day logged (done + validated), today's from the page's files.
+  const fin = {};
+  Object.entries(M.history || {}).forEach(([day, p]) => {
+    const k = (p || {})[key] || {},
+      s = o.dept ? ((k.departments || {})[o.dept] || {}).states : k.states;
+    if (s && day !== today) fin[day] = (s.done || 0) + (s.val || 0);
+  });
+  const now = stNow(o.kind, o.dept);
+  fin[today] = now.done + now.val;
+  // Retakes: the files that received one, by week.
+  const rtk = {};
+  items
+    .filter(i => i.kind === o.kind && !omitted(i))
+    .forEach(i =>
+      i.notes
+        .filter(n => n.type === 'rtk' && n.date && (!o.dept || n.deps.includes(o.dept)))
+        .forEach(n =>
+          (rtk[monday(n.date.slice(0, 10))] = rtk[monday(n.date.slice(0, 10))] || new Set()).add(i.name)
+        )
+    );
+  const daysK = Object.keys(fin).sort(),
+    firstDay = [daysK[0], ...Object.keys(rtk)].filter(Boolean).sort()[0];
+  if (!firstDay) return '';
+  const weeks = [];
+  for (let w = monday(firstDay); w <= today; ) {
+    weeks.push(w);
+    const t = new Date(w + 'T12:00:00');
+    t.setDate(t.getDate() + 7);
+    w = t.toISOString().slice(0, 10);
+  }
+  const shown = weeks.slice(-16);
+  // A week's finished: its last day's count less the last one before it (both logged), never below 0.
+  const at = day => {
+    const d = daysK.filter(x => x <= day).pop();
+    return d == null ? null : fin[d];
+  };
+  const rows = shown.map(w => {
+    const t = new Date(w + 'T12:00:00');
+    t.setDate(t.getDate() + 6);
+    const end = t.toISOString().slice(0, 10),
+      before = new Date(w + 'T12:00:00');
+    before.setDate(before.getDate() - 1);
+    const a = at(before.toISOString().slice(0, 10)),
+      b = at(end < today ? end : today);
+    return { w, done: a == null || b == null ? null : Math.max(0, b - a), rtk: (rtk[w] || new Set()).size };
+  });
+  // The pace the schedule needs: the files left over the weeks left.
+  const total = now.todo + now.wip + now.done + now.val,
+    left = total - now.done - now.val,
+    wl = M.schedule ? (Date.parse(M.schedule.end) - Date.parse(today)) / (7 * 864e5) : 0,
+    need = M.schedule && wl > 0 && left > 0 ? left / wl : null;
+  const top = Math.max(2, need ? Math.ceil(need) + 1 : 0, ...rows.map(r => Math.max(r.done || 0, r.rtk)));
+  const W = 720,
+    H = 170,
+    pl = 40,
+    pr = 112,
+    pt = 12,
+    pb = 26,
+    bw = (W - pl - pr) / rows.length,
+    Y = v => pt + (1 - v / top) * (H - pt - pb);
+  const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString(DTL(), { day: 'numeric', month: 'short' });
+  const every = Math.max(1, Math.ceil(rows.length / 6));
+  const bars = rows
+    .map((r, i) => {
+      const x = pl + i * bw,
+        w = Math.max(3, bw / 2 - 4);
+      return (
+        (r.done != null
+          ? `<rect x="${(x + 3).toFixed(1)}" y="${Y(r.done).toFixed(1)}" width="${w.toFixed(1)}" height="${(Y(0) - Y(r.done)).toFixed(1)}" rx="2" style="fill:var(--st-done)"><title>${esc(fmt(r.w))} · ${T('{n} file finished|{n} files finished', { n: r.done })}</title></rect>`
+          : '') +
+        `<rect x="${(x + 3 + w + 2).toFixed(1)}" y="${Y(r.rtk).toFixed(1)}" width="${w.toFixed(1)}" height="${(Y(0) - Y(r.rtk)).toFixed(1)}" rx="2" style="fill:var(--st-rtk)"><title>${esc(fmt(r.w))} · ${T('{n} file received a retake|{n} files received a retake', { n: r.rtk })}</title></rect>` +
+        (i % every === 0
+          ? `<text class="ot-ax" x="${(x + 3).toFixed(1)}" y="${H - 6}">${fmt(r.w)}</text>`
+          : '')
+      );
+    })
+    .join('');
+  const svg = `<svg class="ot-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${T('Pace per week')}">
+    ${[0, Math.round(top / 2), top].map(v => `<line class="ot-grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ot-ax" x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`).join('')}
+    ${bars}
+    ${need ? `<line class="pj-even" x1="${pl}" x2="${W - pr}" y1="${Y(need).toFixed(1)}" y2="${Y(need).toFixed(1)}"/><text class="ot-lab" x="${W - pr + 8}" y="${(Y(need) + 4).toFixed(1)}">${T('needed: {n} / week', { n: need < 10 ? need.toFixed(1) : Math.round(need) })}</text>` : ''}</svg>`;
+  return `<div class="ot"><div class="ot-h"><b>${T('Pace per week')}</b><span class="faint">${o.kind === 'shot' ? T('Shots') : T('Assets')}${o.dept ? ' · ' + esc(LBL[o.dept]) : ''}</span>
+    <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Files finished')}<i style="--c:var(--st-rtk)"></i>${T('Files that received a retake')}${need ? `<i class="pj-sch"></i>${T('Pace the schedule needs')}` : ''}</span></div><div class="ot-box">${svg}</div></div>`;
 }
 const OT = {};
 /* The hover: the nearest day's two figures, a line through them. */
@@ -391,6 +663,19 @@ function otHover(e) {
     }
   });
   tip.hidden = false;
+  if (OT.mode === 'st') {
+    tip.innerHTML = `<b>${new Date(best.day + 'T12:00:00').toLocaleDateString(DTL(), { weekday: 'short', day: 'numeric', month: 'short' })}${best.now ? ' · ' + T('now') : ''}</b>${ST_LAYERS()
+      .slice()
+      .reverse()
+      .map(
+        ([k, c, l]) =>
+          `<span><i style="--c:${c}"></i>${l()} <b>${(best.s[k] || 0) + (k === 'done' && !VAL() ? best.s.val || 0 : 0)}</b></span>`
+      )
+      .join('')}`;
+    const left = (bx / g.W) * r.width;
+    tip.style.left = Math.min(Math.max(left + 12, 0), r.width - tip.offsetWidth) + 'px';
+    return;
+  }
   tip.innerHTML = `<b>${new Date(best.day + 'T12:00:00').toLocaleDateString(DTL(), { weekday: 'short', day: 'numeric', month: 'short' })}${best.now ? ' · ' + T('now') : ''}</b><span><i style="--c:var(--st-done)"></i>${T('Done')} <b>${pct(best.done)}</b></span><span><i style="--c:var(--st-val)"></i>${T('Validated')} <b>${pct(best.val)}</b></span>`;
   const left = (bx / g.W) * r.width;
   tip.style.left = Math.min(Math.max(left + 12, 0), r.width - tip.offsetWidth) + 'px';

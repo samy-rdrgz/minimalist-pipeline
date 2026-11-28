@@ -143,6 +143,14 @@ def post_load_handler(*args):
     # The file it held is closed: whatever opens now, free it for others.
     if not headless():
         _release_held_lock()
+        # File > New, or a file outside the project: the file this Blender
+        # had open is closed -- its session too, not left showing it (the
+        # live page's who's-on-what) until its pings run out.
+        project_root = get_active_project_root()
+        if not bpy.data.filepath or not project_root or not file_in_active_project(
+            bpy.data.filepath, str(project_root)
+        ):
+            close_session()
 
     if not bpy.data.filepath:
         return

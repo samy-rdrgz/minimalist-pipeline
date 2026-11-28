@@ -13,7 +13,8 @@ const quiet = fn => {
     QUIET = was;
   }
 };
-const keyOf = n => (n.nodeType === 1 ? n.getAttribute('data-n') || n.getAttribute('data-j') || n.id || '' : '');
+const keyOf = n =>
+  n.nodeType === 1 ? n.getAttribute('data-n') || n.getAttribute('data-j') || n.id || '' : '';
 /* The player's <video> (PV, 40-player.js), left where mountVideo() put it: patched like the rest, it was taken
    out of its stage and put back at each pass -- Firefox redraws a video put back, its picture jumping a
    quarter of a second every 2 s in Watch large. Not in the new HTML: no position of its own. */
@@ -23,20 +24,34 @@ function morph(a, b) {
   bn.forEach((y, i) => {
     const x = an[i];
     if (!x) return a.appendChild(y);
-    if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName || keyOf(x) !== keyOf(y)) return a.replaceChild(y, x);
+    if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName || keyOf(x) !== keyOf(y))
+      return a.replaceChild(y, x);
     if (x.nodeType !== 1) {
       if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue;
       return;
     }
     for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
-    for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
+    for (const at of [...y.attributes])
+      if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
     morph(x, y);
   });
   for (let i = bn.length; i < an.length; i++) an[i].remove();
 }
 {
   const d = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-  ['#ws', '#review-slot', '#tree', '#quick', '#list', '#p-head', '#ptabs', '#pbody', '#wide', '#sb-keys', '#sb-stats'].forEach(s => {
+  [
+    '#ws',
+    '#review-slot',
+    '#tree',
+    '#quick',
+    '#list',
+    '#p-head',
+    '#ptabs',
+    '#pbody',
+    '#wide',
+    '#sb-keys',
+    '#sb-stats'
+  ].forEach(s => {
     const el = document.querySelector(s);
     if (!el) return;
     Object.defineProperty(el, 'innerHTML', {
@@ -64,7 +79,8 @@ function morph(a, b) {
    Farm tab, the project's progress elsewhere. */
 function renderStatus() {
   const farm = S.ws === 'farm',
-    key = (ks, what) => `<span class="gk">${ks.map(k => `<span class="kbd">${k}</span>`).join('')}<span>${what}</span></span>`;
+    key = (ks, what) =>
+      `<span class="gk">${ks.map(k => `<span class="kbd">${k}</span>`).join('')}<span>${what}</span></span>`;
   $('#sb-keys').innerHTML = farm
     ? key(['↑', '↓'], T('Job')) + key(['?'], T('Keys'))
     : key(['↑', '↓'], T('File')) +
@@ -80,13 +96,24 @@ function renderStatus() {
 }
 /* The footer's background work: what runs (its spinner), else the last one ended in the
    last minutes (✓ / ✕); every one, with its words, in its tooltip. */
-const BG_KIND = { relink: () => T('Update links'), rushes: () => T('Rushes'), open: () => T('Opening in Blender') };
+const BG_KIND = {
+  relink: () => T('Update links'),
+  rushes: () => T('Rushes'),
+  open: () => T('Opening in Blender'),
+  clean: () => T('Clean old renders'),
+  'clean-look': () => T('Looking at old renders'),
+  migration: () => T('Migrate old data')
+};
 function bgHTML() {
   const all = [...BG, ...(typeof OPENING !== 'undefined' ? OPENING : [])];
   if (!all.length) return '';
   const say = t =>
     `${(BG_KIND[t.kind] || (() => t.kind))()} · ${TS(t.label)}` +
-    (t.state === 'running' ? ' · ' + T('under way') : t.state === 'done' ? ' · ' + T('done') : ' · ' + T('failed')) +
+    (t.state === 'running'
+      ? ' · ' + T('under way')
+      : t.state === 'done'
+        ? ' · ' + T('done')
+        : ' · ' + T('failed')) +
     (t.message ? ' -- ' + TS(t.message) : '');
   const run = all.filter(t => t.state === 'running'),
     last = all[all.length - 1],
@@ -97,7 +124,12 @@ function bgHTML() {
   const bad = all.filter(t => t.state === 'failed').length,
     words =
       all.length > 1
-        ? [all.length - bad ? T('{n} task done|{n} tasks done', { n: all.length - bad }) : '', bad ? T('{n} task failed|{n} tasks failed', { n: bad }) : ''].filter(Boolean).join(' · ')
+        ? [
+            all.length - bad ? T('{n} task done|{n} tasks done', { n: all.length - bad }) : '',
+            bad ? T('{n} task failed|{n} tasks failed', { n: bad }) : ''
+          ]
+            .filter(Boolean)
+            .join(' · ')
         : (BG_KIND[last.kind] || (() => last.kind))() + ' · ' + TS(last.label);
   return `<span class="bgt ${bad ? 'bad' : 'ok'}" title="${tip}">${ic(bad ? 'b-error' : 'b-checkmark')}${esc(words)}</span>`;
 }
@@ -196,7 +228,11 @@ document.addEventListener(
 document.documentElement.addEventListener('mouseleave', () => (PTR = null));
 function keepHover() {
   if (!PTR) return;
-  for (let el = document.elementFromPoint(PTR[0], PTR[1]); el && el !== document.body; el = el.parentElement) {
+  for (
+    let el = document.elementFromPoint(PTR[0], PTR[1]);
+    el && el !== document.body;
+    el = el.parentElement
+  ) {
     if (!el.classList.contains('hov')) {
       el.classList.add('hov');
       HOV.push(el);
@@ -217,7 +253,9 @@ function stuckHeads() {
   const L = $('#list');
   if (!L) return;
   const top = L.getBoundingClientRect().top;
-  L.querySelectorAll('.grp > .grp-h').forEach(h => h.classList.toggle('stuck', h.parentElement.getBoundingClientRect().top < top - 0.5));
+  L.querySelectorAll('.grp > .grp-h').forEach(h =>
+    h.classList.toggle('stuck', h.parentElement.getBoundingClientRect().top < top - 0.5)
+  );
 }
 {
   let raf = 0;

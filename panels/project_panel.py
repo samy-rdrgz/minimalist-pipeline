@@ -1,5 +1,7 @@
 """Project management panel in the 3D View sidebar."""
 
+import time
+
 import bpy
 
 from ..lib import (
@@ -15,6 +17,7 @@ from ..operators import (
     project_ops,
     shot_ops,
 )
+from ..lib.monitoring import tasks
 from ..operators.migration_ops import project_needs_migration
 
 
@@ -70,6 +73,14 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
         active_path = get_active_project_root()
 
         if active_path:
+            # Work under way in the background (Clean old renders, a push, Update links...): a ring
+            # turning and its seconds, redrawn while it runs (tasks.kick()).
+            busy = tasks.running()
+            for t in busy:
+                text = t["text"] + (f" · {int(t['seconds'])} s" if t["seconds"] is not None else "")
+                layout.progress(factor=(time.time() * 0.7) % 1.0, type="RING", text=text)
+            if busy:
+                layout.separator()
             try:
                 mismatch = blender_version_mismatch()
             except Exception:

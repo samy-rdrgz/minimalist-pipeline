@@ -480,12 +480,16 @@ DEFAULT_VALIDATION_ROLES = ({"name": "sup", "level": 1}, {"name": "prod", "level
 def validation_roles(config: dict | None = None) -> list[dict]:
     """The project's validation roles, [{"name", "level"}] in their order:
     a higher level covers the lower ones, the same level is equivalent.
-    Names lowercased, duplicates and unreadable levels dropped."""
+    Names lowercased, duplicates and unreadable levels dropped. None at all
+    with "validation": false (a project without validation: Project
+    settings › Validation)."""
     if config is None:
         try:
             config = ConfigCache.get()
         except Exception:
             config = {}
+    if config.get("validation") is False:
+        return []  # Project settings' Validation unticked: no role, nothing validated
     raw = config.get("validation_roles")
     if raw is None:
         raw = DEFAULT_VALIDATION_ROLES

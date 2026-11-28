@@ -1,7 +1,7 @@
 /* ---------- The review's actions (shared by both views) ----------
    The only functions that change the files. Desktop and phone call them, then refresh().
    None touches the DOM. Each is an action of lib/monitoring/review_import.py (named at the line's end). */
-const canVal = (it, d) => !!S.review && S.review.role !== TEAM && isDone(stOf(it, d)) && !it.ok[d];
+const canVal = (it, d) => VAL() && !!S.review && S.review.role !== TEAM && isDone(stOf(it, d)) && !it.ok[d];
 /* Done on the stable, no new version: one forgotten when it was made. Anyone reviewing may (it's not a validation). */
 /* A note sent already that this reviewer wrote: theirs to change or delete. */
 const ownNote = n =>
@@ -213,7 +213,7 @@ function roleHelp(r) {
       : T('{role}: your validation counts, {top} can still take it back.', { role: r, top: M.role });
 }
 /* The role a review starts on: live, Blender's own (team when none); a snapshot, the top one. */
-const role0 = () => (LIVE ? M.live.role || TEAM : M.role || M.roles[0] || TEAM);
+const role0 = () => (!VAL() ? TEAM : LIVE ? M.live.role || TEAM : M.role || M.roles[0] || TEAM);
 /* Reviewing from now on, as name (Anonymous if none) in role. */
 function startReview(name, role) {
   S.review = { name: (name || '').trim() || T('Anonymous'), role: role || role0() };

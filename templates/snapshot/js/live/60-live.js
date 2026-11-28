@@ -24,7 +24,13 @@ function liveOpen(file, save, anyway) {
       );
       // Blender opening it, often busy a while: said in the footer until it answers again.
       if (res.ok) {
-        OPENING.splice(0, OPENING.length, { kind: 'open', label: res.opened, state: 'running', message: '', t0: Date.now() });
+        OPENING.splice(0, OPENING.length, {
+          kind: 'open',
+          label: res.opened,
+          state: 'running',
+          message: '',
+          t0: Date.now()
+        });
         renderStatus();
       }
     })
@@ -130,6 +136,8 @@ function renderSend(it, preview) {
     start: f.start,
     end: f.end,
     sound: f.sound !== 'off',
+    // Off: this version's last render folder again (Blender's Increment).
+    increment: f.inc !== 'off',
     shots: it.shots && it.shots.length > 1 ? it.shots.filter(x => !f.off[x]) : null
   });
 }
@@ -170,7 +178,13 @@ const RV_TTL = 15 * 60e3;
 function rvIdFor(file) {
   const now = Date.now();
   if (!LV.rv || (now - LV.rv.at > RV_TTL && LV.rv.file !== file))
-    LV.rv = { id: Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0'), at: now, file };
+    LV.rv = {
+      id: Math.floor(Math.random() * 0xffffffff)
+        .toString(16)
+        .padStart(8, '0'),
+      at: now,
+      file
+    };
   else LV.rv.file = file;
   return LV.rv.id;
 }
@@ -355,7 +369,8 @@ function liveStatus(s) {
         ? T('Blender is busy: the page waits')
         : T("Blender doesn't answer: trying again");
   p.lastChild.textContent = s === 'on' ? 'live' : s === 'busy' ? T('busy') : T('disconnected');
-  if (OPENING.length && (s === 'on' || Date.now() - OPENING[0].t0 > 120000)) openingEnd(Date.now() - OPENING[0].t0 > 120000);
+  if (OPENING.length && (s === 'on' || Date.now() - OPENING[0].t0 > 120000))
+    openingEnd(Date.now() - OPENING[0].t0 > 120000);
 }
 let liveAb = null,
   polling = false;

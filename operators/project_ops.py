@@ -457,6 +457,10 @@ _HELP = {
                           "before it, and is to redo when they change:\n"
                           "    layout > animation > fx, lighting > render\n"
                           "A render preset named after one (animation_hd) is its renders'."),
+    "validation": ("Validation", "Unticked: nobody validates -- a done department is\n"
+                   "finished. The live page and the snapshots show no role,\n"
+                   "no Validate, no To validate, no Validated (a solo\n"
+                   "artist, a small team without a production)."),
     "validation_roles": ("Validation roles", "role:level, a comma between them -- a higher level\n"
                          "covers the lower ones, the same level is equivalent:\n"
                          "    sup:1, prod:2\n    sup:1, prod:2, real:2"),
@@ -654,6 +658,12 @@ class ProjectSettings:
         description="The team's names, a comma between them: each one's user name picks "
         "from them (Preferences), departments are assigned to them (a file's detail, on the live page)",
     )
+    validation: bpy.props.BoolProperty(
+        name="Validated by roles",
+        default=True,
+        description="Unticked: no validation at all -- a done department is finished; the live "
+        "page shows no role, no Validate, no To validate, no Validated",
+    )
     validation_roles: bpy.props.StringProperty(
         name="",
         default="sup:1,prod:2",
@@ -782,7 +792,8 @@ class ProjectSettings:
         self._rows(box, [
             ("THUMBNAILS", "IMAGE_DATA", "thumbnail_size", ""),
             ("SNAPSHOT DONE", "SORTSIZE", "progress_wip", "progress_rework", "progress_rtk"),
-            ("VALIDATION ROLES", "SOLO_ON", "validation_roles"),
+            ("VALIDATION", "SOLO_ON", "validation"),
+            *([("VALIDATION ROLES", "BLANK1", "validation_roles")] if self.validation else []),
             ("TEAM", "COMMUNITY", "team"),
         ])
         box.separator(type="LINE")
@@ -900,8 +911,10 @@ class ProjectSettings:
         self.shots_departments = departments_text(
             config.get("shots_departments", DEFAULT_SHOT_DEPARTMENTS), stages.get("shots")
         )
+        self.validation = config.get("validation") is not False
+        # Its roles kept while it's off: ticked again, the same ones.
         self.validation_roles = ",".join(
-            f"{r['name']}:{r['level']}" for r in validation_roles(config)
+            f"{r['name']}:{r['level']}" for r in validation_roles({**config, "validation": True})
         )
 
     def save(self, context) -> list[tuple[str, str]]:
@@ -949,6 +962,7 @@ class ProjectSettings:
                 "tags": self._csv_to_list(self.tags),
                 "assets_departments": parse_departments(self.assets_departments)[0],
                 "shots_departments": parse_departments(self.shots_departments)[0],
+                "validation": bool(self.validation),
                 "validation_roles": self._roles_from_csv(self.validation_roles),
                 "team": project_team({"team": self._csv_to_list(self.team)}),
                 "department_stages": {

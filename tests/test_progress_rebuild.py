@@ -74,7 +74,11 @@ def main() -> None:
         folders = plan["progress"]
         n = pl.rebuild(root, folders, {"validation_roles": [{"name": "prod", "level": 1}]}, today="2026-10-10")
         days = pl.days(root)
-        assert n == 8 and len(days) == 9, (n, list(days))
+        # 9: the 8 days missing, and the one logged before 2.1 given its files by state.
+        assert n == 9 and len(days) == 9, (n, list(days))
+        assert days["2026-10-04"]["assets"]["states"] == {"todo": 0, "wip": 0, "done": 1, "val": 0}, days["2026-10-04"]
+        assert days["2026-10-05"]["assets"]["states"]["val"] == 1, days["2026-10-05"]
+        assert days["2026-10-03"]["assets"]["states"]["done"] == 1, days["2026-10-03"]
         done = {k: v["assets"]["done"] for k, v in days.items()}
         val = {k: v["assets"].get("validated") for k, v in days.items()}
         assert done["2026-10-01"] == 0, done  # made, nothing worked

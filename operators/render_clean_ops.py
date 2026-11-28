@@ -21,14 +21,15 @@ _pending: dict = {}
 _GROUPS_SHOWN = 12
 
 
-def _in_background(fn, args, on_done) -> None:
-    """fn(*args) on a thread, then on_done(result); a failure logged and shown."""
+def _in_background(fn, args, on_done, task) -> None:
+    """fn(*args) on a thread, then on_done(result); a failure logged and shown.
+    task (kind, label): said in the project panel while it runs."""
 
     def failed(error):
         log("ERROR", "render_clean", f"Clean old renders failed: {error}")
         popup("Clean old renders failed", f"{error}\n\nSee the pipeline log.", "ERROR")
 
-    run_in_background(fn, args, on_done, failed)
+    run_in_background(fn, args, on_done, failed, task=task)
 
 
 class M_PIPELINE_OT_clean_renders(bpy.types.Operator):
@@ -123,6 +124,7 @@ class M_PIPELINE_OT_clean_renders(bpy.types.Operator):
                 self.per == "DEPARTMENT",
             ),
             looked,
+            ("clean-look", sequence or ""),
         )
         return {"FINISHED"}
 
@@ -198,5 +200,5 @@ class M_PIPELINE_OT_clean_renders_confirm(bpy.types.Operator):
             else:
                 popup("Clean old renders", message)
 
-        _in_background(apply_render_clean, (plan,), cleaned)
+        _in_background(apply_render_clean, (plan,), cleaned, ("clean", f"{len(plan['candidates'])}"))
         return {"FINISHED"}

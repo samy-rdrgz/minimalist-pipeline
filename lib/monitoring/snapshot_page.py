@@ -188,6 +188,7 @@ def _meta(snapshot: dict) -> dict:
         "lang": meta.get("lang") or "",
         "roles": [r["name"] for r in meta.get("validation_roles") or []],
         "role": meta.get("validation_role"),
+        "val_on": meta.get("validation_on", True) is not False,
         "weights": meta.get("progress_weights") or {},
         "progress": meta.get("progress") or {},
         "validation": meta.get("validation") or {},

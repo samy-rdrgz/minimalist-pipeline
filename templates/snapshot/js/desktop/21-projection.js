@@ -39,12 +39,9 @@ function pjCone(pts, k) {
   const s = [Math.max(0, a.slope), Math.max(0, b.slope)];
   return { at: last[k], lo: Math.min(...s), hi: Math.max(...s) };
 }
-function projection() {
-  const o = S.ot,
-    pts = otPoints(),
+function projection(head) {
+  const pts = otPoints(),
     sch = M.schedule;
-  const head = `<div class="ot-h"><b>${T('Projection')}</b><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
-    <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Done')}<i style="--c:var(--st-val)"></i>${T('Validated')}${sch ? `<i class="pj-sch"></i>${T('Schedule')}` : ''}</span></div>`;
   const done = pjCone(pts, 'done'),
     val = pjCone(pts, 'val');
   if (!done)
@@ -60,7 +57,11 @@ function projection() {
     if (c.hi <= 0) return T('{what}: no headway lately, no projection.', { what: name });
     const soon = reach(c, c.hi),
       late = reach(c, c.lo);
-    if (soon > horizon) return T('{what}: not by {when} at this pace; further, too far to tell.', { what: name, when: month(horizon) });
+    if (soon > horizon)
+      return T('{what}: not by {when} at this pace; further, too far to tell.', {
+        what: name,
+        when: month(horizon)
+      });
     if (late > horizon)
       return T('{what}: not before {when}; the slower pace dates nothing.', {
         what: name,

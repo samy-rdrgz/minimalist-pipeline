@@ -15,6 +15,8 @@ const mSib = () =>
         (S.m.filter === 'val' ? toValidate(i) : S.m.filter === 'rtk' ? openRtk(i) > 0 : openNotes(i) > 0))
   );
 const mF = { '': T('Everything'), val: T('To validate'), rtk: T('Retakes'), note: T('Notes') };
+/* The paths offered: To validate only with validation on (Project settings). */
+const mFs = () => Object.entries(mF).filter(([x]) => x !== 'val' || VAL());
 const mShort = it => (it.kind === 'shot' ? it.name.replace(it.group + '_', '') : it.name);
 const mGl = it =>
   DEPTS[it.kind]
@@ -25,7 +27,17 @@ const mGl = it =>
     })
     .join('');
 
+/* Watch large: the video on the whole screen -- the page not drawn again meanwhile (it would take the
+   video out of it, ending its full screen), drawn once back (mLate). */
+let mLate = false;
+const mBig = () =>
+  (document.fullscreenElement || document.webkitFullscreenElement) === PV || !!PV.webkitDisplayingFullscreen;
 function mRender() {
+  if (mBig()) {
+    mLate = true;
+    return;
+  }
+  mLate = false;
   const R = $('#mob');
   if (!LIVE && S.m.tab === 'farm') S.m.tab = 'review';
   const ta = $('#m-ta'),
@@ -115,7 +127,10 @@ function mReview() {
     .join('');
   const rng = rngSelHTML();
   const req = DEPTS[it.kind].filter(d => required(it).includes(d));
-  const notes = [...it.myNotes.map(n => ({ ...n, mine: true })), ...it.notes.filter(n => !n.done && !n.approval)],
+  const notes = [
+      ...it.myNotes.map(n => ({ ...n, mine: true })),
+      ...it.notes.filter(n => !n.done && !n.approval)
+    ],
     closed = it.notes.filter(n => n.done && n.type !== 'note');
   return `<div class="m-shotnav"><button class="m-ib" data-mstep="-1" aria-label="${T('Previous shot')}" ${k <= 0 ? 'disabled' : ''}>${ic('b-tria_left')}</button>
       <button class="m-pick" data-msheet="pick" aria-label="${T('Choose the shot')}"><span class="t"><b>${esc(mShort(it))}</b><small>${esc(groupOf(it))} · ${k < 0 ? T('out of the filter') : k + 1 + ' / ' + sib.length}${S.m.filter ? ' · ' + mF[S.m.filter] : ''}</small></span><span class="gls">${mGl(it)}</span>${ic('b-downarrow_hlt')}</button>
@@ -124,7 +139,7 @@ function mReview() {
     <div class="m-player ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}" id="m-player">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: esc(it.name) })}" draggable="false">` : `<span class="noimg">${T('Not rendered yet')}</span>`}
       <span class="m-hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b>` : ''}${v ? esc(verLab(v)) : T('no version')}</span><span class="m-fr">f <span data-f>${fNo(S.frame)}</span></span></div>
     <div class="scrub big ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="${T('Frame')}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
-    <div class="m-tp"><button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}">${ic(S.playing ? 'b-pause' : 'b-play')}</button><button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}">${ic('b-frame_next')}</button><button class="btn icon" data-mloop aria-pressed="${S.m.loop}" aria-label="${T('Loop this shot')}" title="${S.m.loop ? T('Plays this shot again and again') : T("Plays the path's shots one after the other")}">${ic('b-file_refresh')}</button>
+    <div class="m-tp"><button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}">${ic(S.playing ? 'b-pause' : 'b-play')}</button><button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}">${ic('b-frame_next')}</button><button class="btn icon" data-mloop aria-pressed="${S.m.loop}" aria-label="${T('Loop this shot')}" title="${S.m.loop ? T('Plays this shot again and again') : T("Plays the path's shots one after the other")}">${ic('b-file_refresh')}</button><button class="btn icon" data-mbig ${pOff(it)} aria-label="${T('Watch large')}" title="${T('The video on the whole screen')}">${ic('b-fullscreen_enter')}</button>
       ${V.length > 1 ? `<span class="join m-ab" role="group" aria-label="${T('Version shown')}"><button class="btn" data-mside="A" aria-pressed="${S.m.side === 'A'}">A</button><button class="btn" data-mside="B" aria-pressed="${S.m.side === 'B'}">B</button></span>` : ''}</div>
     ${
       V.length > 1
@@ -140,7 +155,7 @@ function mReview() {
         notes
           .map(
             n => `<div class="m-note">${n.frames ? `<button class="ft ${/-/.test(n.frames) ? 'rg' : n.type === 'rtk' ? '' : 'nt'}" data-goto="${(String(n.frames).match(/\d+/) || [1])[0]}">${esc(n.frames)}</button>` : `<span class="ft ${n.type === 'rtk' ? '' : 'nt'}">${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>`}
-        <span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.mine ? T('you, not sent yet') : n.author || ''))}</small>${fixHTML(it, n) ? `<span class="m-nf">${fixHTML(it, n)}</span>` : ''}</span>
+        <span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.mine ? T('you, not sent yet') : n.author || ''))}</small>${mRepHTML(it, n)}${fixHTML(it, n) || (S.review && !n.mine) ? `<span class="m-nf">${fixHTML(it, n)}${S.review && !n.mine ? `<button class="btn sm flat" data-msheet="reply:${esc(n.id)}">${ic('b-file_parent')}${T('Reply')}</button>` : ''}</span>` : ''}</span>
         ${n.mine ? `<button class="m-ib" data-unnote="${n.at}" aria-label="${T('Remove')}">${ic('b-loop_back')}</button>` : ''}</div>`
           )
           .join('') || '<p class="m-hint">' + T('No open note.') + '</p>'
@@ -151,13 +166,27 @@ function mReview() {
               S.m.closed
                 ? closed
                     .map(
-                      n => `<div class="m-note done"><span class="ft nt">${n.type === 'rtk' ? 'RTK' : T('to do')}</span><span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.author || ''))}</small><span class="m-nf">${fixHTML(it, n)}</span></span></div>`
+                      n =>
+                        `<div class="m-note done"><span class="ft nt">${n.type === 'rtk' ? 'RTK' : T('to do')}</span><span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.author || ''))}</small><span class="m-nf">${fixHTML(it, n)}</span></span></div>`
                     )
                     .join('')
                 : ''
             }`
           : ''
       }</section>`;
+}
+/* A note's replies, those sent and mine not sent yet (Take my reply back: the last of mine). */
+function mRepHTML(it, n) {
+  if (n.mine) return '';
+  const mine = it.myReplies[n.id] || [],
+    reps = [...(n.replies || []), ...mine.map(r => ({ ...r, mine: 1 }))];
+  if (!reps.length) return '';
+  return `<span class="m-rep">${reps
+    .map(
+      (r, k) =>
+        `<span class="r"><span class="rt">${esc(r.text || '')}<small>${esc(r.author || '')}${r.mine ? ' · ' + T('you, not sent yet') : ''}</small></span>${r.mine && k === reps.length - 1 ? `<button class="m-ib" data-unreply="${esc(n.id)}" aria-label="${T('Take my reply back')}">${ic('b-loop_back')}</button>` : ''}</span>`
+    )
+    .join('')}</span>`;
 }
 function mDept(it, d) {
   const x = info(it, d),
@@ -169,7 +198,7 @@ function mDept(it, d) {
       ${rv ? `<button class="m-as ${a.length ? '' : 'none'} ${it.assign && d in it.assign ? 'chg' : ''}" data-msheet="as:${d}">${ic('b-user')}<span>${a.length ? esc(a.join(', ')) : T('Assign')}</span></button>` : a.length ? `<span class="m-as ro">${ic('b-user')}<span>${esc(a.join(', '))}</span></span>` : ''}</div>
     ${
       rv
-        ? `<div class="m-da"><button class="btn ok" data-mval="${d}" aria-pressed="${m === 'val'}" ${rv.role === TEAM || !canVal(it, d) ? 'disabled' : ''}>${ic('b-checkmark')}${m === 'val' ? T('Validated') : T('Validate')}</button>
+        ? `<div class="m-da"><button class="btn ok" data-mval="${d}" aria-pressed="${m === 'val'}" ${rv.role === TEAM || !canVal(it, d) ? 'disabled' : ''} ${VAL() ? '' : 'style="display:none"'}>${ic('b-checkmark')}${m === 'val' ? T('Validated') : T('Validate')}</button>
       <button class="btn alert" data-mrtk="${d}" aria-pressed="${m === 'rtk'}">${ic('b-x')}${m === 'rtk' ? T('Retake · you') : 'Retake'}</button>
       ${d in it.marked || canMark(it, d) ? `<button class="btn ${d in it.marked ? 'ok' : 'tool'} m-span" data-mark="${d}" aria-pressed="${d in it.marked}">${ic('b-checkmark')}${T('Mark done')} <small>${esc(it.stable || '')}</small></button>` : ''}
       ${f.to_redo ? `<button class="btn ${it.still[d] ? 'ok' : 'tool'} m-span" data-still="${d}" aria-pressed="${!!it.still[d]}">${ic('b-checkmark')}${T('Still done')} <small>${esc(f.to_redo)}</small></button>` : ''}</div>`
@@ -180,7 +209,7 @@ function mComposer() {
   if (!S.review)
     return `<div class="m-comp"><button class="btn primary m-wide" data-msheet="start">${ic('b-greasepencil')}${T('Start the review')}</button></div>`;
   const it = cur(),
-    req = DEPTS[it.kind].filter(d => required(it).includes(d));
+    req = DEPTS[it.kind];
   if (S.m.cdept && !req.includes(S.m.cdept)) S.m.cdept = null;
   return `<div class="m-comp"><div class="m-cr"><span class="join m-ct"><button class="btn icon" data-mct="rtk" aria-pressed="${S.m.ctype === 'rtk'}" aria-label="Retake" title="Retake">${ic('b-x')}</button><button class="btn icon" data-mct="note" aria-pressed="${S.m.ctype === 'note'}" aria-label="${T('Remark')}" title="${T('Remark')}">${ic('i-note')}</button><button class="btn icon" data-mct="todo" aria-pressed="${S.m.ctype === 'todo'}" aria-label="${T('To do')}" title="${T('To do')}">${ic('b-checkmark')}</button></span>
       <button class="m-chip" data-msheet="cdept"><span>${S.m.cdept ? LBL[S.m.cdept] : T('No dept.')}</span>${ic('b-downarrow_hlt')}</button>
@@ -215,7 +244,7 @@ function mFarm() {
           // An ffmpeg pass (frame check, compilation, preview): its own progress, after the frames'.
           const bar = j.compile != null || j.total,
             p = j.compile != null ? j.compile : j.total ? j.done / j.total : 0;
-          return `<button class="m-job" data-msheet="job:${j.id}">${jst(j.state)}<span class="jt"><b>${esc(j.file)}</b><small>${esc([TS(j.text), j.user].filter(Boolean).join(' · '))}</small>
+          return `<button class="m-job" data-msheet="job:${j.id}">${jst(j.state)}<span class="jt"><b>${jobName(j)}</b><small>${esc([TS(j.text), j.user].filter(Boolean).join(' · '))}</small>
           ${bar ? `<span class="jbar"><i style="--p:${p * 100}%"></i></span>` : ''}</span><span class="pc">${bar ? Math.round(p * 100) + ' %' : ''}</span></button>`;
         })
         .join('')}
@@ -250,7 +279,7 @@ function mSheet() {
     ]
       .map(([x, l]) => `<button class="btn" data-mkind="${x}" aria-pressed="${S.m.kind === x}">${l}</button>`)
       .join('')}</span>
-      <div class="m-filters">${Object.entries(mF)
+      <div class="m-filters">${mFs()
         .map(
           ([x, l]) =>
             `<button class="m-chip ${S.m.filter === x ? 'on' : ''}" data-mfilter="${x}">${l}<span class="n">${cnt(x)}</span></button>`
@@ -315,17 +344,17 @@ function mSheet() {
   }
   if (k === 'cdept') {
     t = T('The note is on');
-    const req = DEPTS[it.kind].filter(d => required(it).includes(d));
     h =
-      req.map(d => opt(`data-mcd="${d}"`, S.m.cdept === d, LBL[d])).join('') +
+      // Every department of its kind: one not required said so (its notes count in no figure).
+      DEPTS[it.kind].map(d => opt(`data-mcd="${d}"`, S.m.cdept === d, LBL[d], naDep(it, d) ? T('not required') : '')).join('') +
       opt('data-mcd=""', !S.m.cdept, T('No department'), T('the whole shot'));
   }
   if (k === 'start') {
     t = T('Start the review');
     h = `<label class="field"><input id="m-name" value="${esc(M.live.user || '')}" placeholder="${T('Your name')}" aria-label="${T('Your name')}" autocomplete="name"></label>
-      <span class="join full">${[...M.roles, TEAM].map(r => `<button class="btn" data-mrole="${r}" aria-pressed="${r === (S.m.role || role0())}">${r}</button>`).join('')}</span>
-      <p class="m-hint">${esc(roleHelp(S.m.role || role0()))}</p>
-      <div class="m-sec-h">${T('Path')}</div>${Object.entries(mF)
+      <span class="join full" ${VAL() ? '' : 'style="display:none"'}>${[...M.roles, TEAM].map(r => `<button class="btn" data-mrole="${r}" aria-pressed="${r === (S.m.role || role0())}">${r}</button>`).join('')}</span>
+      <p class="m-hint" ${VAL() ? '' : 'hidden'}>${esc(roleHelp(S.m.role || role0()))}</p>
+      <div class="m-sec-h">${T('Path')}</div>${mFs()
         .map(([x, l]) =>
           opt(`data-mfilter="${x}" data-keep`, S.m.filter === x, l, x === '' ? T('every shot, in order') : '')
         )
@@ -358,13 +387,32 @@ function mSheet() {
   }
   if (k === 'menu') {
     t = 'Menu';
-    h = `<div class="m-sec-h">${T('Theme')}</div><span class="join full">${[
-      ['dark', T('Dark')],
-      ['light', T('Light')],
-      ['system', T('System')]
-    ]
-      .map(([x, l]) => `<button class="btn" data-theme="${x}" aria-pressed="${S.theme === x}">${l}</button>`)
-      .join('')}</span>
+    const lang = (() => {
+      try {
+        return (
+          new URLSearchParams(location.search).get('lang') || localStorage.getItem('mp-snapshot.lang') || ''
+        );
+      } catch (_) {
+        return '';
+      }
+    })();
+    h = `${LIVE ? '' : `<button class="btn m-wide" data-mvideos>${ic('b-file_folder')}${T('Choose the videos…')}</button><p class="m-hint">${T("The snapshot's videos zip (Export snapshot › Videos: Zip), or its .mp4 files.")}</p>`}
+      <label class="btn m-wide">${ic('b-import')}${T('Load a review…')}<input type="file" class="rv-load" accept=".json,application/json" hidden></label>
+      <div class="m-sec-h">${T('Theme')}</div><span class="join full">${[
+        ['dark', T('Dark')],
+        ['light', T('Light')],
+        ['system', T('System')]
+      ]
+        .map(
+          ([x, l]) => `<button class="btn" data-theme="${x}" aria-pressed="${S.theme === x}">${l}</button>`
+        )
+        .join('')}</span>
+      <div class="m-sec-h">${T('Language')}</div><span class="join full">${[
+        ...document.querySelectorAll('#m-view [data-lang]')
+      ]
+        .map(b => [b.dataset.lang, b.querySelector('.lbl').textContent])
+        .map(([x, l]) => `<button class="btn" data-lang="${x}" aria-pressed="${lang === x}">${l}</button>`)
+        .join('')}</span>
       <div class="m-sec-h">${T('Legend')}</div><ul class="legend-list">${[
         ['done', null, T('Done')],
         ['wip', 'rtk', T('Open retake')],
@@ -378,11 +426,22 @@ function mSheet() {
         ['done', null, T('Rendered since its last session'), '', 1],
         ['done', null, T('Render to check'), '', 'chk']
       ]
+        .filter(([b]) => VAL() || b !== 'val')
         .map(([b, c, l, n, r]) => `<li>${glyph(b, c, 1, !!n, r)}<span>${l}</span></li>`)
         .join('')}</ul>
       <p class="m-hint">${T('Links, breakdown, file settings and more filters: the desktop version.')}</p>
       <a class="brand-f" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener"><svg viewBox="${document.querySelector('.statusbar .brand-f svg').getAttribute('viewBox')}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span><span class="v">${esc(M.addon_version || '')}</span></a>`;
     foot = `${S.review ? '<button class="btn m-wide" data-mstop>' + T('Leave the review') + '</button>' : ''}${mFsOk() ? `<button class="btn m-wide" data-mfull>${ic(mFsOn() ? 'b-fullscreen_exit' : 'b-fullscreen_enter')}${mFsOn() ? T('Leave full screen') : T('Full screen')}</button>` : ''}<button class="btn m-wide" data-mview="desktop">${T('Desktop version')}</button>`;
+  }
+  if (k && k.startsWith('reply:')) {
+    const n = it && it.notes.find(x => x.id === k.slice(6));
+    if (!n || !S.review) {
+      S.m.sheet = null;
+      return '';
+    }
+    t = T('Reply');
+    h = `<p class="m-hint">${esc(n.text || T('(no text)'))}</p><label class="field ta"><textarea id="m-rta" rows="3" placeholder="${T('Your reply…')}" aria-label="${T('Reply')}"></textarea></label>`;
+    foot = `<button class="btn primary m-wide" data-mreply="${esc(n.id)}">${ic('b-file_parent')}${T('Reply')}</button>`;
   }
   if (k && k.startsWith('job:')) {
     const j = F.jobs.find(x => x.id === k.slice(4));
@@ -494,6 +553,22 @@ $('#mob').addEventListener('click', e => {
     if (S.m.sheet === 'render') S.m.rf = null;
     if (S.m.sheet === 'start') S.m.role = null;
     mRender();
+    if (S.m.sheet && S.m.sheet.startsWith('reply:')) $('#m-rta')?.focus();
+    return;
+  }
+  if ((x = q('[data-mreply]'))) {
+    const txt = ($('#m-rta')?.value || '').trim();
+    if (!txt) return;
+    A.reply(cur(), x.dataset.mreply, txt);
+    S.m.sheet = null;
+    refresh();
+    toast(T('Reply added to your review'));
+    return;
+  }
+  if (q('[data-mvideos]')) {
+    S.m.sheet = null;
+    mRender();
+    pickVideos();
     return;
   }
   if (q('[data-mfull]')) {
@@ -558,6 +633,28 @@ $('#mob').addEventListener('click', e => {
       if (f && !mSib().some(i => i.name === S.sel)) S.sel = f.name;
     }
     mRender();
+    return;
+  }
+  if (q('[data-mbig]')) {
+    // The video itself on the whole screen, the phone turned sideways where it can be (Android);
+    // an iPhone: its own player. Back: the page as it was (full screen or not).
+    const c = curVideo();
+    if (!c || !c.src || PV.parentNode !== $('#m-player')) {
+      toast(T('Video not found: choose the videos folder (Menu).'));
+      return;
+    }
+    try {
+      const p = PV.requestFullscreen
+        ? PV.requestFullscreen({ navigationUI: 'hide' })
+        : PV.webkitEnterFullscreen && PV.webkitEnterFullscreen();
+      if (p && p.then)
+        p.then(
+          () =>
+            screen.orientation &&
+            screen.orientation.lock &&
+            screen.orientation.lock('landscape').catch(() => {})
+        ).catch(() => {});
+    } catch (_) {}
     return;
   }
   if (q('[data-mloop]')) {
@@ -635,7 +732,13 @@ $('#mob').addEventListener('click', e => {
       ta = $('#m-ta'),
       txt = wordsOf(ta, toast);
     if (!txt) return;
-    A.note(it, { type: S.m.ctype, dept: S.m.cdept, text: txt, frames: rangeStr(), shot: digits(writeShot(it)) });
+    A.note(it, {
+      type: S.m.ctype,
+      dept: S.m.cdept,
+      text: txt,
+      frames: rangeStr(),
+      shot: digits(writeShot(it))
+    });
     ta.value = '';
     S.rangeStart = null;
     mRender();
@@ -755,7 +858,9 @@ $('#mob').addEventListener(
   'touchstart',
   e => {
     const t = e.touches[0];
-    const on = e.touches.length === 1 && (e.target.closest('#m-player') ? 'shot' : e.target.closest('.m-sheet-h') ? 'sheet' : null);
+    const on =
+      e.touches.length === 1 &&
+      (e.target.closest('#m-player') ? 'shot' : e.target.closest('.m-sheet-h') ? 'sheet' : null);
     mSw = on ? { on, x: t.clientX, y: t.clientY } : null;
   },
   { passive: true }
@@ -796,9 +901,24 @@ function mFull(on) {
 }
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev =>
   document.addEventListener(ev, () => {
+    const big = mBig();
+    // Watch large: the player's own controls while on the whole screen (pause, seek); back, the page's.
+    PV.controls = big;
+    if (!big) {
+      try {
+        screen.orientation && screen.orientation.unlock && screen.orientation.unlock();
+      } catch (_) {}
+      if (mLate) mRender();
+      return;
+    }
     if (isMob() && S.m.sheet === 'menu') mRender();
   })
 );
+// An iPhone's own player: its end, the page's controls back.
+PV.addEventListener('webkitendfullscreen', () => {
+  PV.controls = false;
+  if (mLate) mRender();
+});
 $('#mob').addEventListener(
   'touchend',
   function first() {

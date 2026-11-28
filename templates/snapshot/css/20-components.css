@@ -10,7 +10,7 @@ html {
 }
 body {
   margin: 0;
-  background: var(--screen);
+  background: transparent; /* the screen's grey: html's, under the backdrop (body::before) */
   color: var(--text);
   font: 400 var(--fs) / 1.45 var(--ui);
   -webkit-font-smoothing: antialiased;
@@ -536,7 +536,7 @@ button.chip-frame:hover {
   align-items: flex-end; /* everything on the tabs' line: their foot, the bar's */
   gap: var(--sp-5);
   padding: 0 var(--sp-3) 0 var(--sp-5);
-  background: var(--screen); /* on the screen itself, no box */
+  background: transparent; /* on the screen itself, no box: the backdrop through */
   flex: none;
   min-width: 0;
 }
@@ -1356,18 +1356,19 @@ body.out-open .scrim {
 }
 .kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(calc(200px * var(--scale)), 1fr));
-  gap: var(--sp-6);
+  /* Compact: the tiles on one row on a desktop's width. */
+  grid-template-columns: repeat(auto-fit, minmax(calc(165px * var(--scale)), 1fr));
+  gap: var(--sp-4);
   padding: var(--sp-7);
 }
 .kpi {
   background: var(--box);
   border: 1px solid var(--line);
   border-radius: var(--r-l);
-  padding: var(--sp-7);
+  padding: var(--sp-5) var(--sp-6);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-5);
+  gap: var(--sp-3);
 }
 .kpi .t {
   color: var(--text-2);
@@ -2026,6 +2027,64 @@ body.out-open .scrim {
 #wide[hidden] {
   display: none;
 }
+/* The page's backdrop (--wbg, the selected file's picture, boot.js syncBackdrop()): filling the
+   screen, blurred, under the screen's grey at 72 %; the areas stay opaque over it, the gaps
+   between them and the status bar (glass) let it through. */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+body::before {
+  background: var(--wbg, none) center / cover no-repeat;
+  filter: blur(90px);
+  transform: scale(1.3);
+}
+body::after {
+  background: color-mix(in srgb, var(--screen) 55%, transparent);
+}
+.statusbar,
+.ws,
+.review-chip {
+  background: color-mix(in srgb, var(--head) 55%, transparent) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+/* The header's right end on the areas' right edge (the review's bar against it). */
+.topbar {
+  padding-right: 0;
+}
+/* Its backdrop (--wbg, the shot's picture): filling the screen, blurred, under the screen's
+   grey at 72 % -- the panels keep their own backgrounds over it. */
+#wide::before,
+#wide::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+#wide::before {
+  background: var(--wbg, none) center / cover no-repeat;
+  filter: blur(90px);
+  transform: scale(1.3); /* the blur's soft edge out of sight */
+}
+#wide::after {
+  background: color-mix(in srgb, var(--screen) 55%, transparent);
+}
+#wide > * {
+  position: relative;
+  z-index: 1;
+}
+/* The main areas stay opaque; the secondary ones -- its header -- glass over the backdrop. */
+#wide .w-head {
+  background: color-mix(in srgb, var(--head) 55%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
 .w-head {
   display: flex;
   align-items: center;
@@ -2145,7 +2204,7 @@ body.out-open .scrim {
   /* The screen's ground between the sequences' blocks (the gutters between areas): the blocks
      stand out, edge to edge -- a gap above the first one only, under the header. The Farm tab's
      groups alike (the same #list). */
-  background: var(--screen);
+  background: transparent; /* the backdrop through, between the blocks */
   /* The gutter between areas (--gap), between the blocks and above the first. */
   padding: var(--gap) 0 0;
   display: flex;
@@ -2195,13 +2254,21 @@ body.out-open .scrim {
 }
 /* Colour only: a row set aside keeps its hatching (.row.omit's background-image). Under :where():
    hovered and picked win over the stripes. */
+/* The first row the darker one: the sequence's header and the departments' are the light ones (a
+   sequence of one shot was one light block, header to row). */
 .rows > .row:where(:nth-child(odd of .row)),
 .jobs > .job:where(:nth-child(odd of .job)) {
-  background-color: var(--stripe-a);
+  background-color: var(--stripe-b);
 }
 .rows > .row:where(:nth-child(even of .row)),
 .jobs > .job:where(:nth-child(even of .job)) {
-  background-color: var(--stripe-b);
+  background-color: var(--stripe-a);
+}
+/* Between the sequences' blocks, a band of the screen's ground (glass over the area): each block
+   apart -- the area's own grey made them one. */
+#list:has(> .grp) {
+  background: color-mix(in srgb, var(--screen) 65%, transparent);
+  gap: calc(var(--gap) * 1.5);
 }
 .rows > .row:is(:hover, .hov),
 .jobs > .job:is(:hover, .hov) {
@@ -2269,8 +2336,9 @@ body.out-open .scrim {
   border-right: 1px solid var(--line);
   flex: none;
 }
-.vtabs[hidden] {
-  display: none;
+.vtabs[hidden],
+.vtabs:empty {
+  display: none; /* no file selected: no tabs, not an empty strip beside "Pick a file" */
 }
 .vtab {
   width: calc(36px * var(--scale));
@@ -2462,7 +2530,8 @@ button.assign:hover {
      hover -- the row never changes height. */
   align-items: center;
   --jl: calc(20px * var(--scale)); /* a first line's height: the icon's */
-  padding: var(--sp-6) var(--sp-7);
+  /* One line: its name, its shot and step after it; its bar beside its frames. */
+  padding: var(--sp-3) var(--sp-7);
   border-bottom: 1px solid var(--row-hover);
   cursor: pointer;
   position: relative; /* its rail when picked (.job.sel::before) */
@@ -2481,10 +2550,9 @@ button.assign:hover {
   gap: var(--sp-1);
 }
 .job .jt {
-  justify-content: center;
-  gap: 0; /* the step's words' padding instead: folded with them */
-  align-self: stretch;
-  min-height: calc(var(--jl) + var(--sp-1) + var(--fs-s) * 1.35); /* its name, the step's words */
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--sp-5);
 }
 .job .f {
   font: 500 var(--fs) var(--mono);
@@ -2493,10 +2561,17 @@ button.assign:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.job .f {
+  flex: 0 1 auto;
+}
 .job .s {
-  color: var(--text-2);
+  flex: 1 1 0;
+  min-width: 0;
+  color: var(--text-3);
   font-size: var(--fs-s);
-  padding-top: var(--sp-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .job .s .tag {
   margin-left: var(--sp-3); /* Render here: local, viewport */
@@ -2515,6 +2590,21 @@ button.assign:hover {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
+}
+/* A job's row: its bar and its frames side by side (one line). */
+.job .jbar {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.job .jbar i {
+  flex: 1;
+  min-width: calc(40px * var(--scale));
+}
+.job .jbar span {
+  white-space: nowrap;
+}
+.jbar {
   font-size: var(--fs-s);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
@@ -2785,6 +2875,9 @@ button.assign:hover {
   gap: var(--sp-4);
   flex-wrap: nowrap;
   min-width: 0;
+  /* A button's height whatever it holds: one version (its name alone) or several (A / B, menus) --
+     the timeline above no longer moves from one shot to the next. */
+  min-height: var(--u);
 }
 .bigf {
   font: 600 calc(22px * var(--scale)) var(--mono);
@@ -3102,6 +3195,7 @@ button.assign:hover {
 .sf .lab {
   margin-right: auto;
   color: var(--text-2);
+  white-space: nowrap; /* "Shots done" on one line: on two, it hid its bar */
 }
 .sf.na {
   color: var(--text-3);
@@ -3173,11 +3267,30 @@ button.assign:hover {
 
 .stab {
   display: grid;
-  grid-template-columns: minmax(120px, 1.2fr) repeat(var(--nd), minmax(70px, 1fr)) minmax(70px, 1fr);
-  gap: var(--sp-3) var(--sp-4);
-  padding: var(--sp-6) var(--sp-7) var(--sp-7);
+  /* The names' column a fixed width: the shots' and the assets' first department at the same place,
+     whatever their number of departments. */
+  grid-template-columns: calc(130px * var(--scale)) repeat(var(--nd), minmax(64px, 1fr)) minmax(64px, 1fr);
+  /* Compact: every sequence at a glance -- a thin bar a cell, rows close together. */
+  gap: 2px var(--sp-3);
+  padding: var(--sp-3) var(--sp-7) var(--sp-5);
   align-items: center;
   overflow-x: auto;
+}
+.stab .sf,
+.stab .sn {
+  height: calc(20px * var(--scale));
+}
+.stab .sf {
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-s);
+}
+.stab .sf .v {
+  padding: 0 var(--sp-3);
+  line-height: 1.2;
+  font-size: var(--fs-xs);
+}
+.stab .sh {
+  padding-bottom: var(--sp-1);
 }
 .stab .sh {
   color: var(--text-3);
@@ -5069,24 +5182,6 @@ button.mn-h:hover {
   .dept:not(:hover):not(.hov):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])) {
     margin-top: calc(-1 * var(--sp-2));
   }
-  /* The Farm tab: a job's step's words (its group and its icon say its state), folded -- its name,
-     centred at rest, pushed up on hover; the row's height kept (.job .jt). */
-  .job .s {
-    max-height: calc(var(--fs-s) * 1.35 + var(--sp-1));
-    overflow: hidden;
-    transition:
-      max-height calc(0.22s * var(--hk, 1)) ease,
-      padding calc(0.22s * var(--hk, 1)) ease,
-      opacity calc(0.18s * var(--hk, 1)) ease,
-      visibility calc(0.18s * var(--hk, 1));
-  }
-  .job:not(:hover):not(.hov):not(.sel) .s {
-    max-height: 0;
-    padding-top: 0;
-    opacity: 0;
-    visibility: hidden;
-    --hk: 0.4;
-  }
   /* Narrowed to nothing too, not only faded: a card's buttons beside its words, a note's pen in its
      header -- left in place, they'd push the words to a second line. */
   .dept .acts,
@@ -5213,4 +5308,43 @@ button.mn-h:hover {
   align-self: flex-start;
   margin: 0;
   white-space: normal;
+}
+
+/* New shot… / New asset… under the list's last group (a review's): a sequence or a prefix not there yet. */
+.new-f {
+  display: flex;
+  padding: var(--sp-6) var(--sp-7);
+}
+
+/* A job of one shot of a block: that shot's number strong in the file's name, the others faint (jobName()). */
+.jsub {
+  font-weight: 700;
+  color: var(--text);
+}
+.jsub-o {
+  opacity: 0.45;
+}
+
+/* The Farm tab's blocks folded as the sequences' (their title a button: data-fold "farm:<state>"). */
+.grp.closed .jobs,
+.grp.closed .mnodes,
+.grp.closed > :not(.grp-h) {
+  display: none;
+}
+
+/* A department not required on the file, offered for a note all the same: greyed (its notes count in no figure). */
+.btn.na:not([aria-pressed="true"]) {
+  opacity: 0.55;
+}
+.btn.na .g {
+  width: calc(16px * var(--scale));
+  height: calc(16px * var(--scale));
+}
+/* Watch large: the departments not required, a line under the required ones -- to write a note on. */
+.wd-na {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
 }

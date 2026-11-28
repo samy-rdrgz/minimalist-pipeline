@@ -160,6 +160,8 @@ class M_PIPELINE_OT_push_rushes(bpy.types.Operator):
             self.assets,
             ConfigCache.get(),
             get_user(context),
+            # Its label (Blender's panel, the page's footer): the sequences, names.
+            task=", ".join(chosen[:3]) + (f" +{len(chosen) - 3}" if len(chosen) > 3 else "") or "assets",
         )
         self.report({"INFO"}, "Pushing rushes to editing (see the log when done)...")
         return {"FINISHED"}
@@ -170,5 +172,6 @@ def push_checked_renders(context, entries: list) -> None:
     videos = checked_render_videos(entries)
     if videos:
         push_in_background(
-            push_rushes, get_active_project_root(), videos, get_user(context)
+            push_rushes, get_active_project_root(), videos, get_user(context),
+            task=videos[0].stem + (f" +{len(videos) - 1}" if len(videos) > 1 else ""),
         )

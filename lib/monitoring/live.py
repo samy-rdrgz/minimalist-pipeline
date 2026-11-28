@@ -38,10 +38,10 @@ from urllib.parse import parse_qs, unquote, urlparse
 import bpy
 
 from ..background import Worker
-from ..core import get_addon_version, now
+from ..core import get_addon_version, iso_timestamp, now, read_json_quiet
 from ..logs import log
 from ..preview import browser_video, render_department, render_root
-from .snapshot import _folder_frames, _owner_shots, _render_presets, _rushes_by_name, _video_name, build_snapshot, folder_links, read_render_state
+from .snapshot import _folder_frames, _owner_shots, _render_order, _render_presets, _rushes_by_name, _video_name, build_snapshot, folder_links, read_render_state
 from .snapshot_page import page_data, render_page
 from .status import project_stages
 from . import progress_log
@@ -506,16 +506,14 @@ def _versions(root: Path, kind: str, owner: Path, v_prefix: str) -> dict:
     shots = _owner_shots(owner) if kind == "shot" else []
     if len(shots) > 1:
         dirs += [(s, base.with_name(s)) for s in shots]
+    finished = _finished_times(root, owner)
     out = {}
     for line, folder in dirs:
         try:
-            found = sorted(
-                (e for e in os.scandir(folder) if e.is_dir() and e.name.startswith(v_prefix)),
-                key=lambda e: e.stat().st_mtime,
-                reverse=True,
-            )
+            listed = [e for e in os.scandir(folder) if e.is_dir() and e.name.startswith(v_prefix)]
         except OSError:
             continue
+        found = _history_order(listed, finished)
         rows = []
         for e in found:
             video = _video_name(root, browser_video(Path(e.path)))
@@ -526,13 +524,54 @@ def _versions(root: Path, kind: str, owner: Path, v_prefix: str) -> dict:
                 "department": render_department(Path(e.path)),
                 "video": video,
                 "first": (_folder_frames(Path(e.path)) or [None])[0],
-                "at": e.stat().st_mtime,
+                "at": finished.get(_folder_key(e.path)) or e.stat().st_mtime,
             })
             if len(rows) >= VERSIONS_SHOWN:
                 break
         if rows:
             out[line] = rows
     return out
+
+
+def _folder_key(path) -> str:
+    return os.path.normcase(os.path.abspath(str(path)))
+
+
+def _finished_times(root: Path, owner: Path) -> dict:
+    """{render folder (_folder_key()): when its last finished render
+    completed}, from render_history.json -- the order the page lists a
+    file's renders in, not the folders' times (a folder copied, or
+    pasted from elsewhere, is written anew). Thread-safe."""
+    history = read_json_quiet(Path(owner) / ".pipeline" / "render_history.json") or {}
+    out = {}
+    for e in history.get("entries") or []:
+        if not isinstance(e, dict) or e.get("status") != "finished" or not e.get("output_path"):
+            continue
+        at = iso_timestamp(e.get("completed_at"))
+        if at is None:
+            continue
+        # Its frames' pattern (.../v003_001/sq010_sh010_v003.#####), as read_render_state() reads it.
+        key = _folder_key((Path(root) / str(e["output_path"])).parent)
+        out[key] = max(at, out.get(key, at))
+    return out
+
+
+def _history_order(entries: list, finished: dict) -> list:
+    """Render folders newest first: by when the history says each finished;
+    one it doesn't know (rendered before the history, or by hand) just
+    above the known one its name (version, increment) follows -- by name
+    alone when the history knows none. Never by the folders' own times."""
+    known = [(_render_order(e.name), finished[_folder_key(e.path)]) for e in entries if _folder_key(e.path) in finished]
+
+    def key(e):
+        order = _render_order(e.name)
+        at = finished.get(_folder_key(e.path))
+        if at is not None:
+            return (at, 0, order)
+        below = [(o, t) for o, t in known if o <= order]
+        return (max(below)[1] if below else float("-inf"), 1, order)
+
+    return sorted(entries, key=key, reverse=True)
 
 
 def _checks(root: Path, tracking: dict) -> list:
@@ -824,7 +863,8 @@ def _apply(root: Path, raw: dict) -> dict:
     out["changed"] += checked["changed"]
     out["skipped"] += checked["skipped"]
     for a in actions:
-        if a["type"] == "description" and a.get("new") and a["new"] != a["old"]:
+        # An empty one over a description: cleared.
+        if a["type"] == "description" and a.get("new", "") != a.get("old", ""):
             filepath = _review_file(a["file"])
             if filepath:
                 try:
@@ -1126,6 +1166,17 @@ def _play(raw: dict) -> dict:
 FINISHED_SHOWN = 20  # the farm's finished jobs listed, newest first
 
 
+def _queue_order(row: dict) -> tuple:
+    """The order the farm takes its jobs in (farm/queue.py scan_queue()):
+    the highest priority first, then the oldest -- a job not accepted yet
+    (pending) after the queue's."""
+    try:
+        prio = int(row.get("priority", 10) or 0)
+    except (TypeError, ValueError):
+        prio = 10
+    return (bool(row.get("pending")), -prio, str(row.get("at") or ""))
+
+
 def _farm_data(root: Path) -> dict:
     """The Farm tab's: {"status", "jobs": [{"id", "file", "key" (its
     folder under the project: the page's link to it), "shot", "state",
@@ -1197,6 +1248,7 @@ def _farm_data(root: Path) -> dict:
         }
         (finished if state == "finished" else jobs).append(row)
     finished.sort(key=lambda r: r["at"], reverse=True)
+    jobs.sort(key=_queue_order)
     from ...farm.workers import worker_rendering
     from ..core import get_machine_id
 
@@ -1542,7 +1594,8 @@ def _farm_submit(action: str, raw: dict) -> dict:
         user=user,
         priority=priority,
         render_mode="single" if raw.get("mode") == "single" else "all",
-        increment=True,
+        # The form's Increment (an older page, none: on).
+        increment=raw.get("increment") is not False,
         prerender_script="" if preset == _NO_SCRIPT else preset,
         overrided_frame_range=tuple(frames),
         only_shots=shots,
